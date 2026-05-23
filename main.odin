@@ -7,6 +7,9 @@ import "core:os"
 Coord :: struct {
 	x, y: i32,
 }
+Vertex :: struct {
+	x, y, z: f64,
+}
 Width: u32 = 64
 Height: u32 = 64
 
@@ -14,10 +17,14 @@ main :: proc() {
 	buf := make([]u8, Width * Height * 3)
 	defer delete(buf)
 
+	// vertices := make(map[Vertex]bool)
+	// defer delete(vertices)
+	//
+	// parse_obj("diablo3_pose.obj", &vertices)
+
 	vertices := [3]Coord{{x = 7, y = 3}, {x = 12, y = 37}, {x = 62, y = 53}}
 	render(vertices, buf)
-
-	write_tga("canvas.tga", Width, Height, buf)
+	write_tga("frame.tga", Width, Height, buf)
 }
 
 render :: proc(vertices: [3]Coord, buf: []u8) {
