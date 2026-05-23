@@ -1,6 +1,5 @@
 package main
 
-import "core:fmt"
 import "core:math"
 import "core:os"
 
@@ -61,18 +60,16 @@ screen :: proc(ax: f64, ay: f64) -> Coord {
 rasturize :: proc(vertices: []Vertex, triangles: []Triangle, buf: []u8, rgb: [3]u8) {
 	for t in triangles {
 		i, j, k := t[0], t[1], t[2]
-		a := screen(project(vertices[i]))
-		b := screen(project(vertices[j]))
-		c := screen(project(vertices[k]))
+		a := screen(vertices[i].x, vertices[i].y)
+		b := screen(vertices[j].x, vertices[j].y)
+		c := screen(vertices[k].x, vertices[k].y)
 		line(a, b, buf, rgb)
 		line(c, b, buf, rgb)
 		line(a, c, buf, rgb)
 	}
 	for v in vertices {
-		log_vertex(v)
-		coord := screen(project(v))
-		log_coord(coord)
-		set_pixel(coord.x, coord.y, buf, Red)
+		coord := screen(v.x, v.y)
+		set_pixel(coord.x, coord.y, buf, White)
 	}
 }
 
