@@ -9,8 +9,8 @@ Coord :: struct {
 Vertex :: struct {
 	x, y, z: f64,
 }
-Width: u32 = 1920
-Height: u32 = 1080
+Width: u32 = 800
+Height: u32 = 800
 
 Triangle :: [3]i32
 Cube :: []Vertex {
@@ -28,16 +28,21 @@ main :: proc() {
 	buf := make([]u8, Width * Height * 3)
 	defer delete(buf)
 
-	// vertices := make(map[Vertex]bool)
-	// defer delete(vertices)
-	// parse_obj("diablo3_pose.obj", &vertices)
+	m := make(map[Vertex]u32)
+	defer delete(m)
 
-	rasturize(Cube, []Triangle{{0, 1, 2}}, buf)
+	parse_obj("diablo3_pose.obj", &m)
+	vertices := make([]Vertex, len(m))
+	for v, idx in m {
+		vertices[idx] = v
+	}
+	rasturize(vertices, []Triangle{}, buf)
 	write_tga("frame.tga", Width, Height, buf)
 }
 
 project :: proc(vertex: Vertex) -> (f64, f64) {
-	return vertex.x / vertex.z, vertex.y / vertex.z
+	z := vertex.z + 1.5
+	return vertex.x / z, vertex.y / z
 }
 screen :: proc(ax: f64, ay: f64) -> Coord {
 	// -1..1 -> 0..2 -> 0..1 -> 0..w
@@ -56,7 +61,9 @@ rasturize :: proc(vertices: []Vertex, triangles: []Triangle, buf: []u8) {
 		line(a, c, buf, Forest)
 	}
 	for v in vertices {
+		log_vertex(v)
 		coord := screen(project(v))
+		log_coord(coord)
 		set_pixel(coord.x, coord.y, buf, Red)
 	}
 }
@@ -64,6 +71,8 @@ rasturize :: proc(vertices: []Vertex, triangles: []Triangle, buf: []u8) {
 set_pixel :: proc(x, y: i32, buf: []u8, rgb: [3]u8) {
 	idx := (y * i32(Width)) + x
 	idx *= 3
+	if idx >= i32(len(buf)) {return}
+
 	buf[idx] = rgb[2]
 	buf[idx + 1] = rgb[1]
 	buf[idx + 2] = rgb[0]
