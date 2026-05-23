@@ -33,7 +33,7 @@ main :: proc() {
 	defer delete(m)
 	defer delete(faces)
 
-	parse_obj("diablo3_pose.obj", &m, &faces)
+	parse_obj("monster.obj", &m, &faces)
 	vertices := make([]Vertex, len(m))
 	triangles := make([]Triangle, len(faces))
 
