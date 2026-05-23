@@ -1,5 +1,6 @@
 package main
 
+import "core:fmt"
 import "core:math"
 import "core:os"
 
@@ -29,14 +30,21 @@ main :: proc() {
 	defer delete(buf)
 
 	m := make(map[Vertex]u32)
+	faces := make(map[Triangle]u32)
 	defer delete(m)
+	defer delete(faces)
 
-	parse_obj("diablo3_pose.obj", &m)
+	parse_obj("diablo3_pose.obj", &m, &faces)
 	vertices := make([]Vertex, len(m))
+	triangles := make([]Triangle, len(faces))
+
 	for v, idx in m {
 		vertices[idx] = v
 	}
-	rasturize(vertices, []Triangle{}, buf)
+	for triangle, idx in faces {
+		triangles[idx] = triangle
+	}
+	rasturize(vertices, triangles, buf, Red)
 	write_tga("frame.tga", Width, Height, buf)
 }
 
@@ -50,15 +58,15 @@ screen :: proc(ax: f64, ay: f64) -> Coord {
 	y := ((ay + 1) / 2) * (f64(Height) - 0.5)
 	return Coord{x = i32(x), y = i32(y)}
 }
-rasturize :: proc(vertices: []Vertex, triangles: []Triangle, buf: []u8) {
+rasturize :: proc(vertices: []Vertex, triangles: []Triangle, buf: []u8, rgb: [3]u8) {
 	for t in triangles {
 		i, j, k := t[0], t[1], t[2]
 		a := screen(project(vertices[i]))
 		b := screen(project(vertices[j]))
 		c := screen(project(vertices[k]))
-		line(a, b, buf, Forest)
-		line(c, b, buf, Forest)
-		line(a, c, buf, Forest)
+		line(a, b, buf, rgb)
+		line(c, b, buf, rgb)
+		line(a, c, buf, rgb)
 	}
 	for v in vertices {
 		log_vertex(v)
