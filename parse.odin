@@ -10,7 +10,7 @@ Geometry :: enum {
 	Unknown,
 }
 
-parse_obj :: proc(filename: string, vertices: ^map[Vertex]u32, faces: ^map[Triangle]u32) {
+parse_obj :: proc(filename: string, vertices: ^[dynamic]Vertex, faces: ^[dynamic]Triangle) {
 	data, ok := os.read_entire_file(filename)
 	if !ok {panic("failed to read file")}
 
@@ -28,13 +28,11 @@ parse_obj :: proc(filename: string, vertices: ^map[Vertex]u32, faces: ^map[Trian
 		case Geometry.Vertex:
 			vertex, ok := parse_vertex(parts)
 			if !ok {continue}
-			vertices[vertex] = idx
-			idx += 1
+			append_elem(vertices, vertex)
 		case Geometry.Face:
 			f, ok := parse_faces(parts)
 			if !ok {continue}
-			faces[f] = j
-			j += 1
+			append_elem(faces, f)
 		case Geometry.Unknown:
 			continue
 		}

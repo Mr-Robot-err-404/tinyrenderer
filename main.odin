@@ -3,6 +3,10 @@ package main
 import "core:math"
 import "core:os"
 
+Step :: enum {
+	Wireframe,
+	Rasturization,
+}
 Coord :: struct {
 	x, y: i32,
 }
@@ -23,28 +27,25 @@ Cube :: []Vertex {
 	{x = -0.5, y = 0.5, z = 1},
 	{x = -0.5, y = -0.5, z = 1},
 }
+step := Step.Wireframe
 
 main :: proc() {
 	buf := make([]u8, Width * Height * 3)
 	defer delete(buf)
 
-	m := make(map[Vertex]u32)
-	faces := make(map[Triangle]u32)
-	defer delete(m)
-	defer delete(faces)
+	vertices := make([dynamic]Vertex)
+	triangles := make([dynamic]Triangle)
+	defer delete(vertices)
+	defer delete(triangles)
 
-	parse_obj("monster.obj", &m, &faces)
-	vertices := make([]Vertex, len(m))
-	triangles := make([]Triangle, len(faces))
+	switch step {
+	case Step.Wireframe:
+		parse_obj("monster.obj", &vertices, &triangles)
 
-	for v, idx in m {
-		vertices[idx] = v
+		rasturize(vertices, triangles, buf, Red)
+		write_tga("frame.tga", Width, Height, buf)
+	case Step.Rasturization:
 	}
-	for triangle, idx in faces {
-		triangles[idx] = triangle
-	}
-	rasturize(vertices, triangles, buf, Red)
-	write_tga("frame.tga", Width, Height, buf)
 }
 
 project :: proc(vertex: Vertex) -> (f64, f64) {
@@ -57,7 +58,7 @@ screen :: proc(ax: f64, ay: f64) -> Coord {
 	y := ((ay + 1) / 2) * (f64(Height) - 0.5)
 	return Coord{x = i32(x), y = i32(y)}
 }
-rasturize :: proc(vertices: []Vertex, triangles: []Triangle, buf: []u8, rgb: [3]u8) {
+rasturize :: proc(vertices: [dynamic]Vertex, triangles: [dynamic]Triangle, buf: []u8, rgb: [3]u8) {
 	for t in triangles {
 		i, j, k := t[0], t[1], t[2]
 		a := screen(vertices[i].x, vertices[i].y)
