@@ -2,7 +2,6 @@ package main
 
 import "core:math"
 import "core:os"
-import "core:slice"
 
 Step :: enum {
 	Wireframe,
@@ -39,31 +38,17 @@ main :: proc() {
 	defer delete(vertices)
 	defer delete(triangles)
 
+	parse_obj("head.obj", &vertices, &triangles)
+
 	switch step {
 	case Step.Wireframe:
-		parse_obj("monster.obj", &vertices, &triangles)
 		rasturize(vertices, triangles, buf, Red)
 		write_tga("frame.tga", Width, Height, buf)
 	case Step.Rasturization:
-		append_elems(
-			&vertices,
-			Vertex{x = 0.2, y = 0.2},
-			Vertex{x = 0.4, y = 0.6},
-			Vertex{x = 0.5, y = 0.3},
-			Vertex{x = -0.1, y = -0.7},
-			Vertex{x = -0.4, y = 0.6},
-			Vertex{x = -0.8, y = 0.2},
-		)
-		append_elems(&triangles, Triangle{0, 1, 2}, Triangle{3, 4, 5})
-
 		for triangle in triangles {
-			scanline_rasturize(triangle, vertices, buf)
+			parallel_rasturize(triangle, vertices, buf, rnd_color())
 		}
-		for v in vertices {
-			coord := screen(v.x, v.y)
-			set_pixel(coord.x, coord.y, buf, White)
-		}
-		write_tga("triangles.tga", Width, Height, buf)
+		write_tga("pixels.tga", Width, Height, buf)
 	}
 }
 

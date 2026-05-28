@@ -1,5 +1,7 @@
 package main
 
+import "core:math/rand"
+
 White: [3]u8 = {255, 255, 255}
 
 Light_Blue: [3]u8 = {168, 197, 218}
@@ -18,3 +20,7 @@ Red: [3]u8 = {255, 0, 0}
 Green: [3]u8 = {0, 255, 0}
 Blue: [3]u8 = {0, 0, 255}
 Yellow: [3]u8 = {255, 255, 0}
+
+rnd_color :: proc() -> [3]u8 {
+	return [3]u8{u8(rand.int_max(256)), u8(rand.int_max(256)), u8(rand.int_max(256))}
+}
