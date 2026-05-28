@@ -2,6 +2,7 @@ package main
 
 import "core:math"
 import "core:os"
+import "core:slice"
 
 Step :: enum {
 	Wireframe,
@@ -27,7 +28,7 @@ Cube :: []Vertex {
 	{x = -0.5, y = 0.5, z = 1},
 	{x = -0.5, y = -0.5, z = 1},
 }
-step := Step.Wireframe
+step := Step.Rasturization
 
 main :: proc() {
 	buf := make([]u8, Width * Height * 3)
@@ -41,10 +42,28 @@ main :: proc() {
 	switch step {
 	case Step.Wireframe:
 		parse_obj("monster.obj", &vertices, &triangles)
-
 		rasturize(vertices, triangles, buf, Red)
 		write_tga("frame.tga", Width, Height, buf)
 	case Step.Rasturization:
+		append_elems(
+			&vertices,
+			Vertex{x = 0.2, y = 0.2},
+			Vertex{x = 0.4, y = 0.6},
+			Vertex{x = 0.5, y = 0.3},
+			Vertex{x = -0.1, y = -0.7},
+			Vertex{x = -0.4, y = 0.6},
+			Vertex{x = -0.8, y = 0.2},
+		)
+		append_elems(&triangles, Triangle{0, 1, 2}, Triangle{3, 4, 5})
+
+		for triangle in triangles {
+			scanline_rasturize(triangle, vertices, buf)
+		}
+		for v in vertices {
+			coord := screen(v.x, v.y)
+			set_pixel(coord.x, coord.y, buf, White)
+		}
+		write_tga("triangles.tga", Width, Height, buf)
 	}
 }
 
@@ -102,7 +121,7 @@ line :: proc(start: Coord, end: Coord, buf: []u8, rgb: [3]u8) {
 	}
 	for x: i32 = ax; x <= bx; x += 1 {
 		t := f32(x - ax) / f32(bx - ax)
-		y := f32(ay) + (f32(by - ay) * t)
+		y := math.round_f32(f32(ay) + (f32(by - ay) * t))
 		if steep {
 			set_pixel(i32(y), x, buf, rgb)
 			continue
@@ -111,7 +130,7 @@ line :: proc(start: Coord, end: Coord, buf: []u8, rgb: [3]u8) {
 	}
 }
 
-swap :: proc(a: ^i32, b: ^i32) {
+swap :: proc(a: ^$T, b: ^T) {
 	tmp := a^
 	a^ = b^
 	b^ = tmp
