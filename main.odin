@@ -38,7 +38,7 @@ main :: proc() {
 	defer delete(vertices)
 	defer delete(triangles)
 
-	parse_obj("head.obj", &vertices, &triangles)
+	parse_obj("monster.obj", &vertices, &triangles)
 
 	switch step {
 	case Step.Wireframe:

@@ -18,12 +18,13 @@ parallel_rasturize :: proc(triangle: Triangle, vertices: [dynamic]Vertex, buf: [
 				x = x,
 				y = y,
 			}
-			if inside_triangle(
+			w1, w2 := derive_weights(
 				coord_to_vertex(p),
 				coord_to_vertex(a),
 				coord_to_vertex(b),
 				coord_to_vertex(c),
-			) {
+			)
+			if inside_triangle(w1, w2) {
 				set_pixel(x, y, buf, rgb)
 			}
 		}
@@ -33,14 +34,17 @@ parallel_rasturize :: proc(triangle: Triangle, vertices: [dynamic]Vertex, buf: [
 // NOTE: Sebastian Lague's epic video -> https://www.youtube.com/watch?v=HYAgJN3x4GA
 // P = A + w1(B-A) + w2(C-A)
 
-inside_triangle :: proc(p, a, b, c: Vertex) -> bool {
+inside_triangle :: proc(w1, w2: f64) -> bool {
+	if w1 < 0 || w2 < 0 {return false}
+	return w1 + w2 <= 1
+}
+
+derive_weights :: proc(p, a, b, c: Vertex) -> (f64, f64) {
 	w1 := (a.x * (c.y - a.y)) + (p.y - a.y) * (c.x - a.x) - p.x * (c.y - a.y)
 	w1 /= (b.y - a.y) * (c.x - a.x) - (b.x - a.x) * (c.y - a.y)
 	w2 := p.y - a.y - w1 * (b.y - a.y)
 	w2 /= c.y - a.y
-
-	if w1 < 0 || w2 < 0 {return false}
-	return w1 + w2 <= 1
+	return w1, w2
 }
 
 bounds :: proc(a, b, c: Coord) -> (Coord, Coord) {
