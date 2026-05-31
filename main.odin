@@ -28,6 +28,7 @@ Cube :: []Vertex {
 	{x = -0.5, y = -0.5, z = 1},
 }
 step := Step.Rasturization
+Focal_Distance: f64 = 3
 
 main :: proc() {
 	buf := make([]u8, Width * Height * 3)
@@ -61,24 +62,25 @@ project :: proc(vertex: Vertex) -> (f64, f64) {
 	z := vertex.z + 1.5
 	return vertex.x / z, vertex.y / z
 }
-screen :: proc(ax: f64, ay: f64) -> Coord {
+screen :: proc(v: Vertex) -> Coord {
 	// -1..1 -> 0..2 -> 0..1 -> 0..w
-	x := ((ax + 1) / 2) * (f64(Width) - 0.5)
-	y := ((ay + 1) / 2) * (f64(Height) - 0.5)
-	return Coord{x = i32(math.round_f64(x)), y = i32(math.round_f64(y))}
+	perspective := 1 / (1 - v.z / Focal_Distance)
+	x := math.round_f64(((v.x * perspective + 1) / 2) * (f64(Width) - 0.5))
+	y := math.round_f64(((v.y * perspective + 1) / 2) * (f64(Height) - 0.5))
+	return Coord{x = i32(x), y = i32(y)}
 }
 rasturize :: proc(vertices: [dynamic]Vertex, triangles: [dynamic]Triangle, buf: []u8, rgb: [3]u8) {
 	for t in triangles {
 		i, j, k := t[0], t[1], t[2]
-		a := screen(vertices[i].x, vertices[i].y)
-		b := screen(vertices[j].x, vertices[j].y)
-		c := screen(vertices[k].x, vertices[k].y)
+		a := screen(vertices[i])
+		b := screen(vertices[j])
+		c := screen(vertices[k])
 		line(a, b, buf, rgb)
 		line(c, b, buf, rgb)
 		line(a, c, buf, rgb)
 	}
 	for v in vertices {
-		coord := screen(v.x, v.y)
+		coord := screen(v)
 		set_pixel(coord.x, coord.y, buf, White)
 	}
 }
@@ -86,7 +88,7 @@ rasturize :: proc(vertices: [dynamic]Vertex, triangles: [dynamic]Triangle, buf: 
 set_pixel :: proc(x, y: i32, buf: []u8, rgb: [3]u8) {
 	idx := (y * i32(Width)) + x
 	idx *= 3
-	if idx >= i32(len(buf)) {return}
+	if idx < 0 || idx >= i32(len(buf)) {return}
 
 	buf[idx] = rgb[2]
 	buf[idx + 1] = rgb[1]

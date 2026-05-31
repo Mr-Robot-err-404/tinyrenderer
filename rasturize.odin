@@ -3,6 +3,13 @@ package main
 import "core:math"
 import "core:slice"
 
+Axis :: enum {
+	X,
+	Y,
+	Z,
+}
+Angle: f64 = math.PI / 6
+
 parallel_rasturize :: proc(
 	triangle: Triangle,
 	vertices: [dynamic]Vertex,
@@ -12,7 +19,11 @@ parallel_rasturize :: proc(
 	rgb: [3]u8,
 ) {
 	va, vb, vc := vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
-	points := []Coord{screen(va.x, va.y), screen(vb.x, vb.y), screen(vc.x, vc.y)}
+	points := []Coord {
+		screen(rotate(va, Axis.Y, Angle)),
+		screen(rotate(vb, Axis.Y, Angle)),
+		screen(rotate(vc, Axis.Y, Angle)),
+	}
 	bnd := z_bounds(vertices)
 
 	a, b, c := points[0], points[1], points[2]
@@ -40,7 +51,7 @@ parallel_rasturize :: proc(
 			gray := u8(normalize(bnd, z) * 255)
 
 			idx := (y * i32(Width)) + x
-			if idx >= i32(len(z_buf)) {continue}
+			if idx < 0 || idx >= i32(len(z_buf)) {continue}
 
 			prev := z_buf[idx]
 			if prev == 0 || z >= prev {
@@ -50,6 +61,30 @@ parallel_rasturize :: proc(
 			}
 		}
 	}
+}
+
+rotate :: proc(v: Vertex, axis: Axis, theta: f64) -> Vertex {
+	switch axis {
+	case Axis.X:
+		return Vertex {
+			x = v.x,
+			y = v.y * math.cos_f64(theta) - v.z * math.sin_f64(theta),
+			z = v.y * math.sin_f64(theta) + v.z * math.cos_f64(theta),
+		}
+	case Axis.Y:
+		return Vertex {
+			x = v.x * math.cos_f64(theta) + v.z * math.sin_f64(theta),
+			y = v.y,
+			z = -v.x * math.sin_f64(theta) + v.z * math.cos_f64(theta),
+		}
+	case Axis.Z:
+		return Vertex {
+			x = v.x * math.cos_f64(theta) - v.y * math.sin_f64(theta),
+			y = v.x * math.sin_f64(theta) + v.y * math.cos_f64(theta),
+			z = v.z,
+		}
+	}
+	return Vertex{}
 }
 
 // NOTE: Sebastian Lague's epic video -> https://www.youtube.com/watch?v=HYAgJN3x4GA
@@ -101,9 +136,9 @@ z_bounds :: proc(vertices: [dynamic]Vertex) -> [2]f64 {
 
 scanline_rasturize :: proc(triangle: Triangle, vertices: [dynamic]Vertex, buf: []u8) {
 	points := []Coord {
-		screen(vertices[triangle[0]].x, vertices[triangle[0]].y),
-		screen(vertices[triangle[1]].x, vertices[triangle[1]].y),
-		screen(vertices[triangle[2]].x, vertices[triangle[2]].y),
+		screen(vertices[triangle[0]]),
+		screen(vertices[triangle[1]]),
+		screen(vertices[triangle[2]]),
 	}
 	slice.sort_by(points, proc(a, b: Coord) -> bool {
 		return a.y < b.y
