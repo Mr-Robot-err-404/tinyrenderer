@@ -7,12 +7,13 @@ parallel_rasturize :: proc(
 	triangle: Triangle,
 	vertices: [dynamic]Vertex,
 	buf: []u8,
+	depth: []u8,
 	z_buf: []f64,
 	rgb: [3]u8,
 ) {
 	va, vb, vc := vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
 	points := []Coord{screen(va.x, va.y), screen(vb.x, vb.y), screen(vc.x, vc.y)}
-	bds := z_bounds(vertices)
+	bnd := z_bounds(vertices)
 
 	a, b, c := points[0], points[1], points[2]
 	ensure_unique_apex(&a, &b, &c)
@@ -20,7 +21,7 @@ parallel_rasturize :: proc(
 	if area < 1 {return}
 
 	start, end := bounds(a, b, c)
-	for x in start.x ..< end.x {
+	for x in start.x ..= end.x {
 		for y in start.y ..= end.y {
 			p := Coord {
 				x = x,
@@ -36,14 +37,16 @@ parallel_rasturize :: proc(
 
 			w0 := 1 - w1 - w2
 			z := (w0 * va.z) + (w1 * vb.z) + (w2 * vc.z)
-			gray := u8(normalize(bds, z) * 255)
+			gray := u8(normalize(bnd, z) * 255)
 
 			idx := (y * i32(Width)) + x
-			prev := z_buf[idx]
+			if idx >= i32(len(z_buf)) {continue}
 
+			prev := z_buf[idx]
 			if prev == 0 || z >= prev {
 				z_buf[idx] = z
-				set_pixel(x, y, buf, [3]u8{gray, gray, gray})
+				set_pixel(x, y, buf, rgb)
+				set_pixel(x, y, depth, [3]u8{gray, gray, gray})
 			}
 		}
 	}
@@ -86,8 +89,8 @@ normalize :: proc(bounds: [2]f64, n: f64) -> f64 {
 }
 
 z_bounds :: proc(vertices: [dynamic]Vertex) -> [2]f64 {
-	min: f64 = 100
-	max: f64 = 0
+	min: f64 = math.F64_MAX
+	max: f64 = -math.F64_MAX
 
 	for v in vertices {
 		if v.z < min {min = v.z}

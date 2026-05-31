@@ -31,16 +31,18 @@ step := Step.Rasturization
 
 main :: proc() {
 	buf := make([]u8, Width * Height * 3)
-	depth := make([]f64, Width * Height)
+	depth := make([]u8, Width * Height * 3)
+	z_buf := make([]f64, Width * Height)
 	defer delete(buf)
 	defer delete(depth)
+	defer delete(z_buf)
 
 	vertices := make([dynamic]Vertex)
 	triangles := make([dynamic]Triangle)
 	defer delete(vertices)
 	defer delete(triangles)
 
-	parse_obj("head.obj", &vertices, &triangles)
+	parse_obj("monster.obj", &vertices, &triangles)
 
 	switch step {
 	case Step.Wireframe:
@@ -48,9 +50,10 @@ main :: proc() {
 		write_tga("frame.tga", Width, Height, buf)
 	case Step.Rasturization:
 		for triangle in triangles {
-			parallel_rasturize(triangle, vertices, buf, depth, rnd_color())
+			parallel_rasturize(triangle, vertices, buf, depth, z_buf, rnd_color())
 		}
 		write_tga("pixels.tga", Width, Height, buf)
+		write_tga("depth.tga", Width, Height, depth)
 	}
 }
 
@@ -62,7 +65,7 @@ screen :: proc(ax: f64, ay: f64) -> Coord {
 	// -1..1 -> 0..2 -> 0..1 -> 0..w
 	x := ((ax + 1) / 2) * (f64(Width) - 0.5)
 	y := ((ay + 1) / 2) * (f64(Height) - 0.5)
-	return Coord{x = i32(x), y = i32(y)}
+	return Coord{x = i32(math.round_f64(x)), y = i32(math.round_f64(y))}
 }
 rasturize :: proc(vertices: [dynamic]Vertex, triangles: [dynamic]Triangle, buf: []u8, rgb: [3]u8) {
 	for t in triangles {
