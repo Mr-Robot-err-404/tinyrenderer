@@ -31,14 +31,16 @@ step := Step.Rasturization
 
 main :: proc() {
 	buf := make([]u8, Width * Height * 3)
+	depth := make([]f64, Width * Height)
 	defer delete(buf)
+	defer delete(depth)
 
 	vertices := make([dynamic]Vertex)
 	triangles := make([dynamic]Triangle)
 	defer delete(vertices)
 	defer delete(triangles)
 
-	parse_obj("monster.obj", &vertices, &triangles)
+	parse_obj("head.obj", &vertices, &triangles)
 
 	switch step {
 	case Step.Wireframe:
@@ -46,7 +48,7 @@ main :: proc() {
 		write_tga("frame.tga", Width, Height, buf)
 	case Step.Rasturization:
 		for triangle in triangles {
-			parallel_rasturize(triangle, vertices, buf, rnd_color())
+			parallel_rasturize(triangle, vertices, buf, depth, rnd_color())
 		}
 		write_tga("pixels.tga", Width, Height, buf)
 	}

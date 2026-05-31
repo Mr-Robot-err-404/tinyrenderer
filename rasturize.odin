@@ -3,15 +3,23 @@ package main
 import "core:math"
 import "core:slice"
 
-parallel_rasturize :: proc(triangle: Triangle, vertices: [dynamic]Vertex, buf: []u8, rgb: [3]u8) {
-	points := []Coord {
-		screen(vertices[triangle[0]].x, vertices[triangle[0]].y),
-		screen(vertices[triangle[1]].x, vertices[triangle[1]].y),
-		screen(vertices[triangle[2]].x, vertices[triangle[2]].y),
-	}
-	a, b, c := points[0], points[1], points[2]
-	start, end := bounds(a, b, c)
+parallel_rasturize :: proc(
+	triangle: Triangle,
+	vertices: [dynamic]Vertex,
+	buf: []u8,
+	z_buf: []f64,
+	rgb: [3]u8,
+) {
+	va, vb, vc := vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
+	points := []Coord{screen(va.x, va.y), screen(vb.x, vb.y), screen(vc.x, vc.y)}
+	bds := z_bounds(vertices)
 
+	a, b, c := points[0], points[1], points[2]
+	ensure_unique_apex(&a, &b, &c)
+	area := triangle_area(coord_to_vertex(a), coord_to_vertex(b), coord_to_vertex(c))
+	if area < 1 {return}
+
+	start, end := bounds(a, b, c)
 	for x in start.x ..< end.x {
 		for y in start.y ..= end.y {
 			p := Coord {
@@ -24,8 +32,18 @@ parallel_rasturize :: proc(triangle: Triangle, vertices: [dynamic]Vertex, buf: [
 				coord_to_vertex(b),
 				coord_to_vertex(c),
 			)
-			if inside_triangle(w1, w2) {
-				set_pixel(x, y, buf, rgb)
+			if !inside_triangle(w1, w2) {continue}
+
+			w0 := 1 - w1 - w2
+			z := (w0 * va.z) + (w1 * vb.z) + (w2 * vc.z)
+			gray := u8(normalize(bds, z) * 255)
+
+			idx := (y * i32(Width)) + x
+			prev := z_buf[idx]
+
+			if prev == 0 || z >= prev {
+				z_buf[idx] = z
+				set_pixel(x, y, buf, [3]u8{gray, gray, gray})
 			}
 		}
 	}
@@ -33,6 +51,10 @@ parallel_rasturize :: proc(triangle: Triangle, vertices: [dynamic]Vertex, buf: [
 
 // NOTE: Sebastian Lague's epic video -> https://www.youtube.com/watch?v=HYAgJN3x4GA
 // P = A + w1(B-A) + w2(C-A)
+
+ensure_unique_apex :: proc(a, b, c: ^Coord) {
+	if a.y == b.y {swap(a, c)} else if a.y == c.y {swap(a, b)}
+}
 
 inside_triangle :: proc(w1, w2: f64) -> bool {
 	if w1 < 0 || w2 < 0 {return false}
@@ -47,11 +69,31 @@ derive_weights :: proc(p, a, b, c: Vertex) -> (f64, f64) {
 	return w1, w2
 }
 
+triangle_area :: proc(a, b, c: Vertex) -> f64 {
+	return math.abs((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y))
+}
+
 bounds :: proc(a, b, c: Coord) -> (Coord, Coord) {
 	return Coord {
 		x = min(a.x, b.x, c.x),
 		y = min(a.y, b.y, c.y),
 	}, Coord{x = max(a.x, b.x, c.x), y = max(a.y, b.y, c.y)}
+}
+
+normalize :: proc(bounds: [2]f64, n: f64) -> f64 {
+	min, max := bounds[0], bounds[1]
+	return (n - min) / (max - min)
+}
+
+z_bounds :: proc(vertices: [dynamic]Vertex) -> [2]f64 {
+	min: f64 = 100
+	max: f64 = 0
+
+	for v in vertices {
+		if v.z < min {min = v.z}
+		if v.z > max {max = v.z}
+	}
+	return [2]f64{min, max}
 }
 
 scanline_rasturize :: proc(triangle: Triangle, vertices: [dynamic]Vertex, buf: []u8) {
