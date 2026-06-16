@@ -8,7 +8,7 @@ Axis :: enum {
 	Y,
 	Z,
 }
-Angle: f64 = math.PI / 6
+Angle: f64 = -math.PI / 6
 
 parallel_rasturize :: proc(
 	triangle: Triangle,
@@ -18,11 +18,19 @@ parallel_rasturize :: proc(
 	z_buf: []f64,
 	rgb: [3]u8,
 ) {
+	transformation := compose_matrices(
+		rotation_matrix(Angle, Axis.Y),
+		rotation_matrix(Angle, Axis.X),
+	)
+	transformation = compose_matrices(transformation, rotation_matrix(Angle, Axis.Z))
 	va, vb, vc := vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
 	points := []Coord {
-		screen(rotate(va, Axis.Y, Angle)),
-		screen(rotate(vb, Axis.Y, Angle)),
-		screen(rotate(vc, Axis.Y, Angle)),
+		screen(transform(transformation, va)),
+		screen(transform(transformation, vb)),
+		screen(transform(transformation, vc)),
+		// screen(rotate(va, Axis.Y, Angle)),
+		// screen(rotate(vb, Axis.Y, Angle)),
+		// screen(rotate(vc, Axis.Y, Angle)),
 	}
 	bnd := z_bounds(vertices)
 
@@ -56,10 +64,85 @@ parallel_rasturize :: proc(
 			prev := z_buf[idx]
 			if prev == 0 || z >= prev {
 				z_buf[idx] = z
-				set_pixel(x, y, buf, rgb)
-				set_pixel(x, y, depth, [3]u8{gray, gray, gray})
+				set_pixel(p.x, p.y, buf, rgb)
+				set_pixel(p.x, p.y, depth, [3]u8{gray, gray, gray})
 			}
 		}
+	}
+}
+
+compose_matrices :: proc(m1: [9]f64, m2: [9]f64) -> [9]f64 {
+	a, b, c, d, e, f, g, h, i := m1[0], m1[1], m1[2], m1[3], m1[4], m1[5], m1[6], m1[7], m1[8]
+	j, k, l, m, n, o, p, q, r := m2[0], m2[1], m2[2], m2[3], m2[4], m2[5], m2[6], m2[7], m2[8]
+	return [9]f64 {
+		(a * j) + (b * m) + (c * p),
+		(a * k) + (b * n) + (c * q),
+		(a * l) + (b * o) + (c * r),
+		(d * j) + (e * m) + (f * p),
+		(d * k) + (e * n) + (f * q),
+		(d * l) + (e * o) + (f * r),
+		(g * j) + (h * m) + (i * p),
+		(g * k) + (h * n) + (i * q),
+		(g * l) + (h * o) + (i * r),
+	}
+}
+
+// 1 0 0
+// 0 1 0
+// 0 0 1
+
+identity_matrix :: proc() -> [9]f64 {
+	return [9]f64{1, 0, 0, 0, 1, 0, 0, 0, 1}
+}
+
+rotation_matrix :: proc(theta: f64, axis: Axis) -> [9]f64 {
+	switch axis {
+	case Axis.X:
+		return [9]f64 {
+			1,
+			0,
+			0,
+			0,
+			math.cos_f64(theta),
+			-math.sin_f64(theta),
+			0,
+			math.sin_f64(theta),
+			math.cos_f64(theta),
+		}
+	case Axis.Y:
+		return [9]f64 {
+			math.cos_f64(theta),
+			0,
+			math.sin_f64(theta),
+			0,
+			1,
+			0,
+			-math.sin_f64(theta),
+			0,
+			math.cos_f64(theta),
+		}
+	case Axis.Z:
+		return [9]f64 {
+			math.cos_f64(theta),
+			-math.sin_f64(theta),
+			0,
+			math.sin_f64(theta),
+			math.cos_f64(theta),
+			0,
+			0,
+			0,
+			1,
+		}
+	}
+	return identity_matrix()
+}
+
+transform :: proc(m: [9]f64, v: Vertex) -> Vertex {
+	i, j, k := 0, 1, 2
+	return Vertex {
+		x = (v.x * m[i]) + (v.y * m[j]) + (v.z * m[k]),
+		y = (v.x * m[i + 3]) + (v.y * m[j + 3]) + (v.z * m[k + 3]),
+		z = (v.x * m[i + 6]) + (v.y * m[j + 6]) + (v.z * m[k + 6]),
 	}
 }
 
