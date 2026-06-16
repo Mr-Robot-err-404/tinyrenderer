@@ -69,6 +69,42 @@ screen :: proc(v: Vertex) -> Coord {
 	y := math.round_f64(((v.y * perspective + 1) / 2) * (f64(Height) - 0.5))
 	return Coord{x = i32(x), y = i32(y)}
 }
+
+// 1  0   0    0
+// 0  1   0    0
+// 0  0   1    0
+// 0  0  -1/f  1
+
+perspective :: proc() -> [16]f64 {
+	return [16]f64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -1 / Focal_Distance, 0, 0, 0, 1}
+}
+
+// w/2   0    0   w/2
+// 0    h/2   0   h/2
+// 0     0    1    0
+// 0     0    0    1
+
+viewport :: proc(v: Vertex) -> [16]f64 {
+	return [16]f64 {
+		f64(Width) / 2,
+		0,
+		0,
+		0,
+		0,
+		f64(Height) / 2,
+		0,
+		0,
+		0,
+		0,
+		1,
+		0,
+		f64(Width) / 2,
+		f64(Height) / 2,
+		0,
+		1,
+	}
+}
+
 rasturize :: proc(vertices: [dynamic]Vertex, triangles: [dynamic]Triangle, buf: []u8, rgb: [3]u8) {
 	for t in triangles {
 		i, j, k := t[0], t[1], t[2]

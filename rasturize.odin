@@ -8,7 +8,7 @@ Axis :: enum {
 	Y,
 	Z,
 }
-Angle: f64 = -math.PI / 6
+Angle: f64 = math.PI / 6
 
 parallel_rasturize :: proc(
 	triangle: Triangle,
@@ -18,19 +18,22 @@ parallel_rasturize :: proc(
 	z_buf: []f64,
 	rgb: [3]u8,
 ) {
-	transformation := compose_matrices(
-		rotation_matrix(Angle, Axis.Y),
+	rx, ry, rz :=
 		rotation_matrix(Angle, Axis.X),
-	)
-	transformation = compose_matrices(transformation, rotation_matrix(Angle, Axis.Z))
+		rotation_matrix(Angle, Axis.Y),
+		rotation_matrix(Angle, Axis.Z)
+
+	result := make([]f64, 9)
+	compose(ry[:], rx[:], 3, result)
+
+	transformation := make([]f64, 9)
+	compose(result, rz[:], 3, transformation)
+
 	va, vb, vc := vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
 	points := []Coord {
 		screen(transform(transformation, va)),
 		screen(transform(transformation, vb)),
 		screen(transform(transformation, vc)),
-		// screen(rotate(va, Axis.Y, Angle)),
-		// screen(rotate(vb, Axis.Y, Angle)),
-		// screen(rotate(vc, Axis.Y, Angle)),
 	}
 	bnd := z_bounds(vertices)
 
@@ -71,6 +74,21 @@ parallel_rasturize :: proc(
 	}
 }
 
+compose :: proc(m1: []f64, m2: []f64, size: int, result: []f64) {
+	if len(m1) != len(m2) {panic("matrices have different sizes in composition")}
+
+	for i := 0; i < len(m1); i += size {
+		for offset := 0; offset < size; offset += 1 {
+			sum: f64 = 0
+			for n := 0; n < size; n += 1 {
+				idx := (size * n) + offset
+				sum += m1[i + n] * m2[idx]
+			}
+			result[i + offset] = sum
+		}
+	}
+}
+
 compose_matrices :: proc(m1: [9]f64, m2: [9]f64) -> [9]f64 {
 	a, b, c, d, e, f, g, h, i := m1[0], m1[1], m1[2], m1[3], m1[4], m1[5], m1[6], m1[7], m1[8]
 	j, k, l, m, n, o, p, q, r := m2[0], m2[1], m2[2], m2[3], m2[4], m2[5], m2[6], m2[7], m2[8]
@@ -94,6 +112,9 @@ compose_matrices :: proc(m1: [9]f64, m2: [9]f64) -> [9]f64 {
 identity_matrix :: proc() -> [9]f64 {
 	return [9]f64{1, 0, 0, 0, 1, 0, 0, 0, 1}
 }
+
+// cosθ -sinθ
+// sinθ cosθ
 
 rotation_matrix :: proc(theta: f64, axis: Axis) -> [9]f64 {
 	switch axis {
@@ -137,7 +158,7 @@ rotation_matrix :: proc(theta: f64, axis: Axis) -> [9]f64 {
 	return identity_matrix()
 }
 
-transform :: proc(m: [9]f64, v: Vertex) -> Vertex {
+transform :: proc(m: []f64, v: Vertex) -> Vertex {
 	i, j, k := 0, 1, 2
 	return Vertex {
 		x = (v.x * m[i]) + (v.y * m[j]) + (v.z * m[k]),
