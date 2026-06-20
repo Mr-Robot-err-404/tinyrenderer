@@ -17,6 +17,17 @@ compose :: proc(m1: []f64, m2: []f64, size: int, result: []f64) {
 	}
 }
 
+transform_matrix :: proc(m: []f64, v: []f64, size: int, result: []f64) {
+	for offset := 0; offset < size; offset += 1 {
+		sum: f64 = 0
+		for n := 0; n < size; n += 1 {
+			i := offset * size
+			sum += m[i + n] * v[n]
+		}
+		result[offset] = sum
+	}
+}
+
 divide :: proc(a: Vertex, n: f64) -> Vertex {
 	return Vertex{x = a.x / n, y = a.y / n, z = a.z / n}
 }
@@ -26,7 +37,11 @@ diff :: proc(a: Vertex, b: Vertex) -> Vertex {
 }
 
 cross_product :: proc(a: Vertex, b: Vertex) -> Vertex {
-	return Vertex{x = a.y * b.z, y = a.z * b.x, z = a.x * b.y}
+	return Vertex {
+		x = (a.y * b.z) - (a.z * b.y),
+		y = (a.z * b.x) - (a.x * b.z),
+		z = (a.x * b.y) - (a.y * b.x),
+	}
 }
 
 magnitude :: proc(v: Vertex) -> f64 {

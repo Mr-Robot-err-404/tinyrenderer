@@ -100,10 +100,21 @@ parallel_rasturize :: proc(
 // | z'|   |nx ny nz 0| |0  0  1  -Cz| |z|
 // ⌊ 1 ⌋   ⌊0  0  0  1⌋ ⌊0  0  0   1 ⌋ ⌊1⌋
 
-modal :: proc(center: Vertex, eye: Vertex, up: Vertex) {
+modal :: proc(center: Vertex, eye: Vertex, up: Vertex, p: Vertex) -> Vertex {
 	n := divide(diff(eye, center), magnitude(diff(eye, center)))
 	l := divide(cross_product(up, n), magnitude(cross_product(up, n)))
 	m := divide(cross_product(n, l), magnitude(cross_product(n, l)))
+
+	c := []f64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -center.x, -center.y, -center.z, 1}
+	inverse := []f64{l.x, m.x, n.x, 0, l.y, m.y, n.y, 0, l.z, m.z, n.z, 0, 0, 0, 0, 1}
+
+	result := make([]f64, 16)
+	compose(c, inverse, 4, result)
+
+	frame := make([]f64, 4)
+	transform_matrix(result, []f64{p.x, p.y, p.z, 1}, 4, frame)
+
+	return Vertex{x = frame[0], y = frame[1], z = frame[2]}
 }
 
 // 1  0   0    0
