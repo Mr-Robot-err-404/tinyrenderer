@@ -89,7 +89,7 @@ compose :: proc(m1: []f64, m2: []f64, size: int, result: []f64) {
 	}
 }
 
-compose_matrices :: proc(m1: [9]f64, m2: [9]f64) -> [9]f64 {
+compose_3D :: proc(m1: [9]f64, m2: [9]f64) -> [9]f64 {
 	a, b, c, d, e, f, g, h, i := m1[0], m1[1], m1[2], m1[3], m1[4], m1[5], m1[6], m1[7], m1[8]
 	j, k, l, m, n, o, p, q, r := m2[0], m2[1], m2[2], m2[3], m2[4], m2[5], m2[6], m2[7], m2[8]
 	return [9]f64 {

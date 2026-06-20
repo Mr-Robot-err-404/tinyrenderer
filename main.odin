@@ -70,6 +70,35 @@ screen :: proc(v: Vertex) -> Coord {
 	return Coord{x = i32(x), y = i32(y)}
 }
 
+// n = (eye - center) / ‖eye - center‖
+// l = (up × n) / ‖up × n‖
+// m = (n × l) / ‖n × l‖
+
+// NOTE:
+// [i,j,k] = [l,m,n] * M
+
+// NOTE:
+// ⌈ x'⌉       ⎛ ⌈x⌉   ⌈Cx⌉ ⎞
+// | y'| = M⁻¹ ⎜ |y| - |Cy| ⎟
+// | z'|       ⎜ |z|   |Cz| ⎟
+// ⌊ 1 ⌋       ⎝ ⌊1⌋   ⌊1 ⌋ ⎠
+
+// M = lx mx nx
+//     ly my ny
+//     lz mz nz
+
+// M⁻¹ = lx ly lz
+//       mx my mz
+//       nx ny nz
+
+// ⌈ x'⌉   ⌈lx ly lz 0⌉ ⌈1  0  0  -Cx⌉ ⌈x⌉
+// | y'| = |mx my mz 0| |0  1  0  -Cy| |y|
+// | z'|   |nx ny nz 0| |0  0  1  -Cz| |z|
+// ⌊ 1 ⌋   ⌊0  0  0  1⌋ ⌊0  0  0   1 ⌋ ⌊1⌋
+
+eye :: proc() {
+}
+
 // 1  0   0    0
 // 0  1   0    0
 // 0  0   1    0
@@ -79,12 +108,12 @@ perspective :: proc() -> [16]f64 {
 	return [16]f64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -1 / Focal_Distance, 0, 0, 0, 1}
 }
 
-// w/2   0    0   w/2
-// 0    h/2   0   h/2
+// w/2   0    0   x + w/2
+// 0    h/2   0   y + h/2
 // 0     0    1    0
 // 0     0    0    1
 
-viewport :: proc(v: Vertex) -> [16]f64 {
+viewport :: proc(offset_x, offset_y: f64) -> [16]f64 {
 	return [16]f64 {
 		f64(Width) / 2,
 		0,
@@ -98,8 +127,8 @@ viewport :: proc(v: Vertex) -> [16]f64 {
 		0,
 		1,
 		0,
-		f64(Width) / 2,
-		f64(Height) / 2,
+		offset_x + (f64(Width) / 2),
+		offset_y + (f64(Height) / 2),
 		0,
 		1,
 	}
@@ -119,6 +148,10 @@ rasturize :: proc(vertices: [dynamic]Vertex, triangles: [dynamic]Triangle, buf: 
 		coord := screen(v)
 		set_pixel(coord.x, coord.y, buf, White)
 	}
+}
+
+magnitude :: proc(v: Vertex) -> f64 {
+	return math.sqrt_f64(math.pow_f64(v.x, 2) + math.pow_f64(v.y, 2) + math.pow_f64(v.z, 2))
 }
 
 set_pixel :: proc(x, y: i32, buf: []u8, rgb: [3]u8) {
