@@ -10,7 +10,12 @@ Axis :: enum {
 }
 Angle: f64 = math.PI / 6
 
+Eye := Vertex{0, 0, 3}
+Center := Vertex{0, 0, 0}
+Up := Vertex{0, 1, 0}
+
 parallel_rasturize :: proc(
+	pipeline: []f64,
 	triangle: Triangle,
 	vertices: [dynamic]Vertex,
 	buf: []u8,
@@ -23,18 +28,8 @@ parallel_rasturize :: proc(
 		rotation_matrix(Angle, Axis.Y),
 		rotation_matrix(Angle, Axis.Z)
 
-	result := make([]f64, 9)
-	compose(ry[:], rx[:], 3, result)
-
-	transformation := make([]f64, 9)
-	compose(result, rz[:], 3, transformation)
-
 	va, vb, vc := vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
-	points := []Coord {
-		screen(transform(transformation, va)),
-		screen(transform(transformation, vb)),
-		screen(transform(transformation, vc)),
-	}
+	points := []Coord{pipe(pipeline, va), pipe(pipeline, vb), pipe(pipeline, vc)}
 	bnd := z_bounds(vertices)
 
 	a, b, c := points[0], points[1], points[2]
@@ -45,10 +40,7 @@ parallel_rasturize :: proc(
 	start, end := bounds(a, b, c)
 	for x in start.x ..= end.x {
 		for y in start.y ..= end.y {
-			p := Coord {
-				x = x,
-				y = y,
-			}
+			p := Coord{x, y}
 			w1, w2 := derive_weights(
 				coord_to_vertex(p),
 				coord_to_vertex(a),
@@ -100,21 +92,14 @@ parallel_rasturize :: proc(
 // | z'|   |nx ny nz 0| |0  0  1  -Cz| |z|
 // ⌊ 1 ⌋   ⌊0  0  0  1⌋ ⌊0  0  0   1 ⌋ ⌊1⌋
 
-modal :: proc(center: Vertex, eye: Vertex, up: Vertex, p: Vertex) -> Vertex {
+modal :: proc(center: Vertex, eye: Vertex, up: Vertex, result: []f64) {
 	n := divide(diff(eye, center), magnitude(diff(eye, center)))
 	l := divide(cross_product(up, n), magnitude(cross_product(up, n)))
 	m := divide(cross_product(n, l), magnitude(cross_product(n, l)))
 
 	c := []f64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -center.x, -center.y, -center.z, 1}
 	inverse := []f64{l.x, m.x, n.x, 0, l.y, m.y, n.y, 0, l.z, m.z, n.z, 0, 0, 0, 0, 1}
-
-	result := make([]f64, 16)
 	compose(c, inverse, 4, result)
-
-	frame := make([]f64, 4)
-	transform_matrix(result, []f64{p.x, p.y, p.z, 1}, 4, frame)
-
-	return Vertex{x = frame[0], y = frame[1], z = frame[2]}
 }
 
 // 1  0   0    0
@@ -150,6 +135,15 @@ viewport :: proc(offset_x, offset_y: f64) -> [16]f64 {
 		0,
 		1,
 	}
+}
+
+pipe :: proc(pipeline: []f64, p: Vertex) -> Coord {
+	v := []f64{p.x, p.y, p.z, 1}
+	result := make([]f64, 4)
+	defer delete(result)
+
+	transform(pipeline, v, 4, result)
+	return Coord{x = i32(result[0] / result[3]), y = i32(result[1] / result[3])}
 }
 
 bounds :: proc(a, b, c: Coord) -> (Coord, Coord) {

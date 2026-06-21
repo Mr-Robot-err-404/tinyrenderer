@@ -50,8 +50,19 @@ main :: proc() {
 		rasturize(vertices, triangles, buf, Red)
 		write_tga("frame.tga", Width, Height, buf)
 	case Step.Rasturization:
+		view := make([]f64, 16)
+		modal(Center, Eye, Up, view)
+
+		pp := perspective()
+		vp := viewport(0, 0)
+		persp := make([]f64, 16)
+		compose(vp[:], pp[:], 4, persp)
+
+		pipeline := make([]f64, 16)
+		compose(persp, view, 4, pipeline)
+
 		for triangle in triangles {
-			parallel_rasturize(triangle, vertices, buf, depth, z_buf, rnd_color())
+			parallel_rasturize(pipeline, triangle, vertices, buf, depth, z_buf, rnd_color())
 		}
 		write_tga("pixels.tga", Width, Height, buf)
 		write_tga("depth.tga", Width, Height, depth)

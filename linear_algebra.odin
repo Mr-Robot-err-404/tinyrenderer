@@ -17,14 +17,14 @@ compose :: proc(m1: []f64, m2: []f64, size: int, result: []f64) {
 	}
 }
 
-transform_matrix :: proc(m: []f64, v: []f64, size: int, result: []f64) {
-	for offset := 0; offset < size; offset += 1 {
+transform :: proc(m: []f64, v: []f64, size: int, result: []f64) {
+	for i := 0; i < size; i += 1 {
 		sum: f64 = 0
-		for n := 0; n < size; n += 1 {
-			i := offset * size
-			sum += m[i + n] * v[n]
+		for offset := 0; offset < size; offset += 1 {
+			idx := i + (size * offset)
+			sum += m[idx] * v[offset]
 		}
-		result[offset] = sum
+		result[i] = sum
 	}
 }
 
@@ -116,15 +116,6 @@ rotation_matrix :: proc(theta: f64, axis: Axis) -> [9]f64 {
 		}
 	}
 	return identity_matrix()
-}
-
-transform :: proc(m: []f64, v: Vertex) -> Vertex {
-	i, j, k := 0, 1, 2
-	return Vertex {
-		x = (v.x * m[i]) + (v.y * m[j]) + (v.z * m[k]),
-		y = (v.x * m[i + 3]) + (v.y * m[j + 3]) + (v.z * m[k + 3]),
-		z = (v.x * m[i + 6]) + (v.y * m[j + 6]) + (v.z * m[k + 6]),
-	}
 }
 
 rotate :: proc(v: Vertex, axis: Axis, theta: f64) -> Vertex {
