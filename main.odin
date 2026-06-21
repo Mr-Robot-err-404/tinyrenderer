@@ -53,7 +53,7 @@ main :: proc() {
 		view := make([]f64, 16)
 		modal(Center, Eye, Up, view)
 
-		pp := perspective()
+		pp := perspective(Eye, Center)
 		vp := viewport(0, 0)
 		persp := make([]f64, 16)
 		compose(vp[:], pp[:], 4, persp)

@@ -10,7 +10,7 @@ Axis :: enum {
 }
 Angle: f64 = math.PI / 6
 
-Eye := Vertex{0, 0, 3}
+Eye := Vertex{-1, 0, 2}
 Center := Vertex{0, 0, 0}
 Up := Vertex{0, 1, 0}
 
@@ -23,11 +23,6 @@ parallel_rasturize :: proc(
 	z_buf: []f64,
 	rgb: [3]u8,
 ) {
-	rx, ry, rz :=
-		rotation_matrix(Angle, Axis.X),
-		rotation_matrix(Angle, Axis.Y),
-		rotation_matrix(Angle, Axis.Z)
-
 	va, vb, vc := vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
 	points := []Coord{pipe(pipeline, va), pipe(pipeline, vb), pipe(pipeline, vc)}
 	bnd := z_bounds(vertices)
@@ -107,8 +102,9 @@ modal :: proc(center: Vertex, eye: Vertex, up: Vertex, result: []f64) {
 // 0  0   1    0
 // 0  0  -1/f  1
 
-perspective :: proc() -> [16]f64 {
-	return [16]f64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -1 / Focal_Distance, 0, 0, 0, 1}
+perspective :: proc(eye: Vertex, center: Vertex) -> [16]f64 {
+	focal_distance := magnitude(diff(eye, center))
+	return [16]f64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -1 / focal_distance, 0, 0, 0, 1}
 }
 
 // w/2   0    0   x + w/2
