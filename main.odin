@@ -13,6 +13,10 @@ Coord :: struct {
 Vertex :: struct {
 	x, y, z: f64,
 }
+Vec4 :: struct {
+	using vertex: Vertex,
+	w:            f64,
+}
 Width: u32 = 800
 Height: u32 = 800
 

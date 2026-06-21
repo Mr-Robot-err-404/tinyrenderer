@@ -24,10 +24,14 @@ parallel_rasturize :: proc(
 	rgb: [3]u8,
 ) {
 	va, vb, vc := vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
-	points := []Coord{pipe(pipeline, va), pipe(pipeline, vb), pipe(pipeline, vc)}
-	bnd := z_bounds(vertices)
+	pa, pb, pc := pipe(pipeline, va), pipe(pipeline, vb), pipe(pipeline, vc)
 
-	a, b, c := points[0], points[1], points[2]
+	a := Coord{i32(pa.x / pa.w), i32(pa.y / pa.w)}
+	b := Coord{i32(pb.x / pb.w), i32(pb.y / pb.w)}
+	c := Coord{i32(pc.x / pc.w), i32(pc.y / pc.w)}
+	az, bz, cz := pa.z / pa.w, pb.z / pb.w, pc.z / pc.w
+
+	bnd := z_bounds(vertices)
 	ensure_unique_apex(&a, &b, &c)
 	area := triangle_area(coord_to_vertex(a), coord_to_vertex(b), coord_to_vertex(c))
 	if area < 1 {return}
@@ -45,8 +49,8 @@ parallel_rasturize :: proc(
 			if !inside_triangle(w1, w2) {continue}
 
 			w0 := 1 - w1 - w2
-			z := (w0 * va.z) + (w1 * vb.z) + (w2 * vc.z)
-			gray := u8(normalize(bnd, z) * 255)
+			z := (w0 * az) + (w1 * bz) + (w2 * cz)
+			gray := u8(z * 255)
 
 			idx := (y * i32(Width)) + x
 			if idx < 0 || idx >= i32(len(z_buf)) {continue}
@@ -133,13 +137,13 @@ viewport :: proc(offset_x, offset_y: f64) -> [16]f64 {
 	}
 }
 
-pipe :: proc(pipeline: []f64, p: Vertex) -> Coord {
+pipe :: proc(pipeline: []f64, p: Vertex) -> Vec4 {
 	v := []f64{p.x, p.y, p.z, 1}
 	result := make([]f64, 4)
 	defer delete(result)
 
 	transform(pipeline, v, 4, result)
-	return Coord{x = i32(result[0] / result[3]), y = i32(result[1] / result[3])}
+	return Vec4{x = result[0], y = result[1], z = result[2], w = result[3]}
 }
 
 bounds :: proc(a, b, c: Coord) -> (Coord, Coord) {
