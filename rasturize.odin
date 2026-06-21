@@ -10,7 +10,7 @@ Axis :: enum {
 }
 Angle: f64 = math.PI / 6
 
-Eye := Vertex{-1, 0, 2}
+Eye := Vertex{0, 3, 2}
 Center := Vertex{0, 0, 0}
 Up := Vertex{0, 1, 0}
 

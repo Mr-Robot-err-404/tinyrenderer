@@ -56,10 +56,10 @@ main :: proc() {
 		pp := perspective(Eye, Center)
 		vp := viewport(0, 0)
 		persp := make([]f64, 16)
-		compose(vp[:], pp[:], 4, persp)
-
 		pipeline := make([]f64, 16)
-		compose(persp, view, 4, pipeline)
+
+		compose(pp[:], vp[:], 4, persp)
+		compose(view, persp, 4, pipeline)
 
 		for triangle in triangles {
 			parallel_rasturize(pipeline, triangle, vertices, buf, depth, z_buf, rnd_color())
