@@ -32,6 +32,10 @@ divide :: proc(a: Vertex, n: f64) -> Vertex {
 	return Vertex{x = a.x / n, y = a.y / n, z = a.z / n}
 }
 
+multiply :: proc(a: Vertex, n: f64) -> Vertex {
+	return Vertex{x = a.x * n, y = a.y * n, z = a.z * n}
+}
+
 diff :: proc(a: Vertex, b: Vertex) -> Vertex {
 	return Vertex{a.x - b.x, a.y - b.y, a.z - b.z}
 }
@@ -44,6 +48,13 @@ cross_product :: proc(a: Vertex, b: Vertex) -> Vertex {
 	}
 }
 
+dot_product :: proc(a: Vertex, b: Vertex) -> f64 {
+	return (a.x * b.x) + (a.y * b.y) + (a.z * b.z)
+}
+normal :: proc(a, b, c: Vertex) -> Vertex {
+	n := cross_product(diff(a, b), diff(a, c))
+	return divide(n, magnitude(n))
+}
 magnitude :: proc(v: Vertex) -> f64 {
 	return math.sqrt_f64(math.pow_f64(v.x, 2) + math.pow_f64(v.y, 2) + math.pow_f64(v.z, 2))
 }

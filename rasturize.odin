@@ -9,10 +9,13 @@ Axis :: enum {
 	Z,
 }
 Angle: f64 = math.PI / 6
+Ambient: f64 = 0.25
+Exponent: f64 = 4
 
-Eye := Vertex{0, 3, 2}
+Eye := Vertex{-1, 0, 2}
 Center := Vertex{0, 0, 0}
 Up := Vertex{0, 1, 0}
+Light := Vertex{0.1, 1, 0}
 
 parallel_rasturize :: proc(
 	pipeline: []f64,
@@ -37,6 +40,9 @@ parallel_rasturize :: proc(
 	if area < 1 {return}
 
 	start, end := bounds(a, b, c)
+	norm := normal(va, vb, vc)
+	df := diffuse(va, vb, vc)
+
 	for x in start.x ..= end.x {
 		for y in start.y ..= end.y {
 			p := Coord{x, y}
@@ -50,7 +56,12 @@ parallel_rasturize :: proc(
 
 			w0 := 1 - w1 - w2
 			z := (w0 * az) + (w1 * bz) + (w2 * cz)
-			gray := u8(z * 255)
+
+			sight := line_of_sight(va, vb, vc, w0, w1, w2)
+			spec := specular(norm, Exponent, sight)
+
+			brightness := min(1, Ambient + df + spec)
+			gray := u8(brightness * 255)
 
 			idx := (y * i32(Width)) + x
 			if idx < 0 || idx >= i32(len(z_buf)) {continue}
@@ -135,6 +146,30 @@ viewport :: proc(offset_x, offset_y: f64) -> [16]f64 {
 		0,
 		1,
 	}
+}
+
+diffuse :: proc(a, b, c: Vertex) -> f64 {
+	n := normal(a, b, c)
+	return max(0, dot_product(n, Light))
+}
+
+specular :: proc(norm: Vertex, e: f64, sight: Vertex) -> f64 {
+	r := reflection(norm)
+	return math.pow_f64(max(0, dot_product(r, sight)), e)
+}
+
+line_of_sight :: proc(va, vb, vc: Vertex, w0, w1, w2: f64) -> Vertex {
+	v := Vertex {
+		x = (va.x * w0) + (w1 * vb.x) + (w2 * vc.x),
+		y = (va.y * w0) + (w1 * vb.y) + (w2 * vc.y),
+		z = (va.z * w0) + (w1 * vb.z) + (w2 * vc.z),
+	}
+	return divide(diff(Eye, v), magnitude(diff(Eye, v)))
+}
+
+reflection :: proc(norm: Vertex) -> Vertex {
+	v := multiply(multiply(norm, 2), dot_product(norm, Light))
+	return Vertex{v.x - Light.x, v.y - Light.y, v.z - Light.z}
 }
 
 pipe :: proc(pipeline: []f64, p: Vertex) -> Vec4 {
