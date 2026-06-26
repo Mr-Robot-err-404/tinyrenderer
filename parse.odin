@@ -7,21 +7,24 @@ import "core:strings"
 Geometry :: enum {
 	Vertex,
 	Face,
+	Normal,
 	Unknown,
 }
 
-parse_obj :: proc(filename: string, vertices: ^[dynamic]Vertex, faces: ^[dynamic]Triangle) {
+parse_obj :: proc(
+	filename: string,
+	vertices: ^[dynamic]Vertex,
+	indices: ^[dynamic][3]Index,
+	normals: ^[dynamic]Vertex,
+) {
 	data, ok := os.read_entire_file(filename)
 	if !ok {panic("failed to read file")}
 
 	defer delete(data, context.allocator)
 	it := string(data)
 
-	idx: u32 = 0
-	j: u32 = 0
-
 	for line in strings.split_lines_iterator(&it) {
-		parts := strings.split(strings.trim_space(line), " ", context.allocator)
+		parts := strings.fields(line, context.allocator)
 		if len(parts) < 4 {continue}
 
 		switch geometry(parts) {
@@ -32,7 +35,11 @@ parse_obj :: proc(filename: string, vertices: ^[dynamic]Vertex, faces: ^[dynamic
 		case Geometry.Face:
 			f, ok := parse_faces(parts)
 			if !ok {continue}
-			append_elem(faces, f)
+			append_elem(indices, f)
+		case Geometry.Normal:
+			v, ok := parse_vertex(parts)
+			if !ok {continue}
+			append_elem(normals, v)
 		case Geometry.Unknown:
 			continue
 		}
@@ -42,20 +49,27 @@ parse_obj :: proc(filename: string, vertices: ^[dynamic]Vertex, faces: ^[dynamic
 geometry :: proc(parts: []string) -> Geometry {
 	if parts[0] == "v" {return Geometry.Vertex}
 	if parts[0] == "f" {return Geometry.Face}
+	if parts[0] == "vn" {return Geometry.Normal}
 	return Geometry.Unknown
 }
 
-parse_faces :: proc(parts: []string) -> (Triangle, bool) {
+parse_faces :: proc(parts: []string) -> ([3]Index, bool) {
 	i, ok := face(parts[1])
 	j, okay := face(parts[2])
 	k, fine := face(parts[3])
-	if !ok || !okay || !fine {return Triangle{}, false}
-	return Triangle{i32(i - 1), i32(j - 1), i32(k - 1)}, true
+	if !ok || !okay || !fine {return [3]Index{}, false}
+	return [3]Index{i, j, k}, true
 }
-face :: proc(s: string) -> (i64, bool) {
+face :: proc(s: string) -> (Index, bool) {
 	f := strings.split(strings.trim_space(s), "/")
-	if len(f) < 3 {return 0, false}
-	return strconv.parse_i64(f[0])
+	if len(f) < 3 {return Index{}, false}
+
+	v, ok := strconv.parse_int(f[0])
+	n, okay := strconv.parse_int(f[2])
+	if !ok || !okay {
+		return Index{}, false
+	}
+	return Index{vertex = v - 1, normal = n - 1}, true
 }
 
 parse_vertex :: proc(parts: []string) -> (Vertex, bool) {

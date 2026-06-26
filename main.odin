@@ -17,6 +17,11 @@ Vec4 :: struct {
 	using vertex: Vertex,
 	w:            f64,
 }
+Index :: struct {
+	vertex: int,
+	normal: int,
+}
+
 Width: u32 = 800
 Height: u32 = 800
 
@@ -43,15 +48,17 @@ main :: proc() {
 	defer delete(z_buf)
 
 	vertices := make([dynamic]Vertex)
-	triangles := make([dynamic]Triangle)
+	normals := make([dynamic]Vertex)
+	indices := make([dynamic][3]Index)
 	defer delete(vertices)
-	defer delete(triangles)
+	defer delete(normals)
+	defer delete(indices)
 
-	parse_obj("head.obj", &vertices, &triangles)
+	parse_obj("head.obj", &vertices, &indices, &normals)
 
 	switch step {
 	case Step.Wireframe:
-		rasturize(vertices, triangles, buf, Red)
+		rasturize(vertices, indices, buf, Red)
 		write_tga("frame.tga", Width, Height, buf)
 	case Step.Rasturization:
 		view := make([]f64, 16)
@@ -65,8 +72,8 @@ main :: proc() {
 		compose(pp[:], vp[:], 4, persp)
 		compose(view, persp, 4, pipeline)
 
-		for triangle in triangles {
-			parallel_rasturize(pipeline, triangle, vertices, buf, depth, z_buf, rnd_color())
+		for idx in indices {
+			parallel_rasturize(pipeline, idx, vertices, buf, depth, z_buf, rnd_color())
 		}
 		write_tga("pixels.tga", Width, Height, buf)
 		write_tga("depth.tga", Width, Height, depth)
@@ -86,12 +93,12 @@ screen :: proc(v: Vertex) -> Coord {
 }
 
 
-rasturize :: proc(vertices: [dynamic]Vertex, triangles: [dynamic]Triangle, buf: []u8, rgb: [3]u8) {
-	for t in triangles {
-		i, j, k := t[0], t[1], t[2]
-		a := screen(vertices[i])
-		b := screen(vertices[j])
-		c := screen(vertices[k])
+rasturize :: proc(vertices: [dynamic]Vertex, indices: [dynamic][3]Index, buf: []u8, rgb: [3]u8) {
+	for idx in indices {
+		i, j, k := idx[0], idx[1], idx[2]
+		a := screen(vertices[i.vertex])
+		b := screen(vertices[j.vertex])
+		c := screen(vertices[k.vertex])
 		line(a, b, buf, rgb)
 		line(c, b, buf, rgb)
 		line(a, c, buf, rgb)

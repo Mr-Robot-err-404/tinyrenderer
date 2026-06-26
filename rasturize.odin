@@ -19,14 +19,14 @@ Light := Vertex{0.1, 1, 0}
 
 parallel_rasturize :: proc(
 	pipeline: []f64,
-	triangle: Triangle,
+	idx: [3]Index,
 	vertices: [dynamic]Vertex,
 	buf: []u8,
 	depth: []u8,
 	z_buf: []f64,
 	rgb: [3]u8,
 ) {
-	va, vb, vc := vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
+	va, vb, vc := vertices[idx[0].vertex], vertices[idx[1].vertex], vertices[idx[2].vertex]
 	pa, pb, pc := pipe(pipeline, va), pipe(pipeline, vb), pipe(pipeline, vc)
 
 	a := Coord{i32(pa.x / pa.w), i32(pa.y / pa.w)}
