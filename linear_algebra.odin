@@ -154,7 +154,7 @@ rotate :: proc(v: Vertex, axis: Axis, theta: f64) -> Vertex {
 }
 
 // NOTE: Sebastian Lague's epic video -> https://www.youtube.com/watch?v=HYAgJN3x4GA
-// P = A + w1(B-A) + w2(C-A)
+// P = w0(A) + w1(B-A) + w2(C-A)
 
 ensure_unique_apex :: proc(a, b, c: ^Coord) {
 	if a.y == b.y {swap(a, c)} else if a.y == c.y {swap(a, b)}

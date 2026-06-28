@@ -9,7 +9,7 @@ Axis :: enum {
 	Z,
 }
 Angle: f64 = math.PI / 6
-Ambient: f64 = 0.25
+Ambient: f64 = 0.2
 Exponent: f64 = 4
 
 Eye := Vertex{-1, 0, 2}
@@ -21,11 +21,13 @@ parallel_rasturize :: proc(
 	pipeline: []f64,
 	idx: [3]Index,
 	vertices: [dynamic]Vertex,
+	normals: [dynamic]Vertex,
 	buf: []u8,
 	depth: []u8,
 	z_buf: []f64,
 	rgb: [3]u8,
 ) {
+	na, nb, nc := normals[idx[0].normal], normals[idx[1].normal], normals[idx[2].normal]
 	va, vb, vc := vertices[idx[0].vertex], vertices[idx[1].vertex], vertices[idx[2].vertex]
 	pa, pb, pc := pipe(pipeline, va), pipe(pipeline, vb), pipe(pipeline, vc)
 
@@ -34,14 +36,13 @@ parallel_rasturize :: proc(
 	c := Coord{i32(pc.x / pc.w), i32(pc.y / pc.w)}
 	az, bz, cz := pa.z / pa.w, pb.z / pb.w, pc.z / pc.w
 
-	bnd := z_bounds(vertices)
 	ensure_unique_apex(&a, &b, &c)
 	area := triangle_area(coord_to_vertex(a), coord_to_vertex(b), coord_to_vertex(c))
 	if area < 1 {return}
 
 	start, end := bounds(a, b, c)
-	norm := normal(va, vb, vc)
-	df := diffuse(va, vb, vc)
+	// norm := normal(va, vb, vc)
+	// df := diffuse(va, vb, vc)
 
 	for x in start.x ..= end.x {
 		for y in start.y ..= end.y {
@@ -57,8 +58,16 @@ parallel_rasturize :: proc(
 			w0 := 1 - w1 - w2
 			z := (w0 * az) + (w1 * bz) + (w2 * cz)
 
+			n := Vertex {
+				x = (w0 * na.x) + (w1 * nb.x) + (w2 * nc.x),
+				y = (w0 * na.y) + (w1 * nb.y) + (w2 * nc.y),
+				z = (w0 * na.z) + (w1 * nb.z) + (w2 * nc.z),
+			}
+			interpolation := divide(n, magnitude(n))
+			df := max(0, dot_product(interpolation, Light))
+
 			sight := line_of_sight(va, vb, vc, w0, w1, w2)
-			spec := specular(norm, Exponent, sight)
+			spec := specular(interpolation, Exponent, sight)
 
 			brightness := min(1, Ambient + df + spec)
 			gray := u8(brightness * 255)
@@ -191,17 +200,6 @@ bounds :: proc(a, b, c: Coord) -> (Coord, Coord) {
 normalize :: proc(bounds: [2]f64, n: f64) -> f64 {
 	min, max := bounds[0], bounds[1]
 	return (n - min) / (max - min)
-}
-
-z_bounds :: proc(vertices: [dynamic]Vertex) -> [2]f64 {
-	min: f64 = math.F64_MAX
-	max: f64 = -math.F64_MAX
-
-	for v in vertices {
-		if v.z < min {min = v.z}
-		if v.z > max {max = v.z}
-	}
-	return [2]f64{min, max}
 }
 
 scanline_rasturize :: proc(triangle: Triangle, vertices: [dynamic]Vertex, buf: []u8) {

@@ -73,7 +73,7 @@ main :: proc() {
 		compose(view, persp, 4, pipeline)
 
 		for idx in indices {
-			parallel_rasturize(pipeline, idx, vertices, buf, depth, z_buf, rnd_color())
+			parallel_rasturize(pipeline, idx, vertices, normals, buf, depth, z_buf, rnd_color())
 		}
 		write_tga("pixels.tga", Width, Height, buf)
 		write_tga("depth.tga", Width, Height, depth)
