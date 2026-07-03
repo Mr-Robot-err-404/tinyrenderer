@@ -47,6 +47,8 @@ main :: proc() {
 	defer delete(depth)
 	defer delete(z_buf)
 
+	for i in 0 ..< len(z_buf) {z_buf[i] = math.NEG_INF_F64}
+
 	vertices := make([dynamic]Vertex)
 	normals := make([dynamic]Vertex)
 	indices := make([dynamic][3]Index)
@@ -73,7 +75,17 @@ main :: proc() {
 		compose(view, persp, 4, pipeline)
 
 		for idx in indices {
-			parallel_rasturize(pipeline, idx, vertices, normals, buf, depth, z_buf, rnd_color())
+			parallel_rasturize(
+				pipeline,
+				view,
+				idx,
+				vertices,
+				normals,
+				buf,
+				depth,
+				z_buf,
+				rnd_color(),
+			)
 		}
 		write_tga("pixels.tga", Width, Height, buf)
 		write_tga("depth.tga", Width, Height, depth)

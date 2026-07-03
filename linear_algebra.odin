@@ -58,6 +58,9 @@ normal :: proc(a, b, c: Vertex) -> Vertex {
 magnitude :: proc(v: Vertex) -> f64 {
 	return math.sqrt_f64(math.pow_f64(v.x, 2) + math.pow_f64(v.y, 2) + math.pow_f64(v.z, 2))
 }
+normalize :: proc(v: Vertex) -> Vertex {
+	return divide(v, magnitude(v))
+}
 
 
 compose_3D :: proc(m1: [9]f64, m2: [9]f64) -> [9]f64 {
@@ -156,8 +159,8 @@ rotate :: proc(v: Vertex, axis: Axis, theta: f64) -> Vertex {
 // NOTE: Sebastian Lague's epic video -> https://www.youtube.com/watch?v=HYAgJN3x4GA
 // P = w0(A) + w1(B-A) + w2(C-A)
 
-ensure_unique_apex :: proc(a, b, c: ^Coord) {
-	if a.y == b.y {swap(a, c)} else if a.y == c.y {swap(a, b)}
+ensure_unique_apex :: proc(a, b, c: ^Point) {
+	if a.screen.y == b.screen.y {swap(a, c)} else if a.screen.y == c.screen.y {swap(a, b)}
 }
 
 inside_triangle :: proc(w1, w2: f64) -> bool {

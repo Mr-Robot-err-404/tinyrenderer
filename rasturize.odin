@@ -8,6 +8,10 @@ Axis :: enum {
 	Y,
 	Z,
 }
+Shading :: enum {
+	Flat,
+	Smooth,
+}
 Angle: f64 = math.PI / 6
 Ambient: f64 = 0.2
 Exponent: f64 = 4
@@ -15,10 +19,20 @@ Exponent: f64 = 4
 Eye := Vertex{-1, 0, 2}
 Center := Vertex{0, 0, 0}
 Up := Vertex{0, 1, 0}
-Light := Vertex{0.1, 1, 0}
+Light := Vertex{0, 1, 0}
+
+shading := Shading.Smooth
+
+Point :: struct {
+	screen: Coord,
+	z:      f64,
+	normal: Vertex,
+	world:  Vertex,
+}
 
 parallel_rasturize :: proc(
 	pipeline: []f64,
+	modal_view: []f64,
 	idx: [3]Index,
 	vertices: [dynamic]Vertex,
 	normals: [dynamic]Vertex,
@@ -27,47 +41,67 @@ parallel_rasturize :: proc(
 	z_buf: []f64,
 	rgb: [3]u8,
 ) {
-	na, nb, nc := normals[idx[0].normal], normals[idx[1].normal], normals[idx[2].normal]
 	va, vb, vc := vertices[idx[0].vertex], vertices[idx[1].vertex], vertices[idx[2].vertex]
 	pa, pb, pc := pipe(pipeline, va), pipe(pipeline, vb), pipe(pipeline, vc)
 
-	a := Coord{i32(pa.x / pa.w), i32(pa.y / pa.w)}
-	b := Coord{i32(pb.x / pb.w), i32(pb.y / pb.w)}
-	c := Coord{i32(pc.x / pc.w), i32(pc.y / pc.w)}
-	az, bz, cz := pa.z / pa.w, pb.z / pb.w, pc.z / pc.w
+	a := Point {
+		normal = normalize(pipe(modal_view, normals[idx[0].normal])),
+		world  = pa,
+		screen = Coord{i32(pa.x / pa.w), i32(pa.y / pa.w)},
+		z      = pa.z / pa.w,
+	}
+	b := Point {
+		normal = normalize(pipe(modal_view, normals[idx[1].normal])),
+		world  = pb,
+		screen = Coord{i32(pb.x / pb.w), i32(pb.y / pb.w)},
+		z      = pb.z / pb.w,
+	}
+	c := Point {
+		normal = normalize(pipe(modal_view, normals[idx[2].normal])),
+		world  = pc,
+		screen = Coord{i32(pc.x / pc.w), i32(pc.y / pc.w)},
+		z      = pc.z / pc.w,
+	}
 
 	ensure_unique_apex(&a, &b, &c)
-	area := triangle_area(coord_to_vertex(a), coord_to_vertex(b), coord_to_vertex(c))
-	if area < 1 {return}
+	start, end := bounds(a.screen, b.screen, c.screen)
 
-	start, end := bounds(a, b, c)
-	// norm := normal(va, vb, vc)
-	// df := diffuse(va, vb, vc)
+	flat_norm := normal(va, vb, vc)
+	flat_df := max(0, dot_product(flat_norm, Light))
+
+	to_eye := diff(Eye, va)
+	if dot_product(flat_norm, to_eye) <= 0 {return}
 
 	for x in start.x ..= end.x {
 		for y in start.y ..= end.y {
 			p := Coord{x, y}
 			w1, w2 := derive_weights(
 				coord_to_vertex(p),
-				coord_to_vertex(a),
-				coord_to_vertex(b),
-				coord_to_vertex(c),
+				coord_to_vertex(a.screen),
+				coord_to_vertex(b.screen),
+				coord_to_vertex(c.screen),
 			)
 			if !inside_triangle(w1, w2) {continue}
 
 			w0 := 1 - w1 - w2
-			z := (w0 * az) + (w1 * bz) + (w2 * cz)
+			z := (w0 * a.z) + (w1 * b.z) + (w2 * c.z)
 
-			n := Vertex {
-				x = (w0 * na.x) + (w1 * nb.x) + (w2 * nc.x),
-				y = (w0 * na.y) + (w1 * nb.y) + (w2 * nc.y),
-				z = (w0 * na.z) + (w1 * nb.z) + (w2 * nc.z),
+			n: Vertex
+			df: f64
+			switch shading {
+			case .Flat:
+				n = flat_norm
+				df = flat_df
+			case .Smooth:
+				n = Vertex {
+					x = (w0 * a.normal.x) + (w1 * b.normal.x) + (w2 * c.normal.x),
+					y = (w0 * a.normal.y) + (w1 * b.normal.y) + (w2 * c.normal.y),
+					z = (w0 * a.normal.z) + (w1 * b.normal.z) + (w2 * c.normal.z),
+				}
+				df = max(0, dot_product(n, Light))
 			}
-			interpolation := divide(n, magnitude(n))
-			df := max(0, dot_product(interpolation, Light))
-
 			sight := line_of_sight(va, vb, vc, w0, w1, w2)
-			spec := specular(interpolation, Exponent, sight)
+			spec := specular(n, Exponent, sight)
 
 			brightness := min(1, Ambient + df + spec)
 			gray := u8(brightness * 255)
@@ -76,7 +110,7 @@ parallel_rasturize :: proc(
 			if idx < 0 || idx >= i32(len(z_buf)) {continue}
 
 			prev := z_buf[idx]
-			if prev == 0 || z >= prev {
+			if prev == math.NEG_INF_F64 || z > prev {
 				z_buf[idx] = z
 				set_pixel(p.x, p.y, buf, rgb)
 				set_pixel(p.x, p.y, depth, [3]u8{gray, gray, gray})
@@ -183,10 +217,8 @@ reflection :: proc(norm: Vertex) -> Vertex {
 
 pipe :: proc(pipeline: []f64, p: Vertex) -> Vec4 {
 	v := []f64{p.x, p.y, p.z, 1}
-	result := make([]f64, 4)
-	defer delete(result)
-
-	transform(pipeline, v, 4, result)
+	result := [4]f64{}
+	transform(pipeline, v, 4, result[:])
 	return Vec4{x = result[0], y = result[1], z = result[2], w = result[3]}
 }
 
@@ -195,11 +227,6 @@ bounds :: proc(a, b, c: Coord) -> (Coord, Coord) {
 		x = min(a.x, b.x, c.x),
 		y = min(a.y, b.y, c.y),
 	}, Coord{x = max(a.x, b.x, c.x), y = max(a.y, b.y, c.y)}
-}
-
-normalize :: proc(bounds: [2]f64, n: f64) -> f64 {
-	min, max := bounds[0], bounds[1]
-	return (n - min) / (max - min)
 }
 
 scanline_rasturize :: proc(triangle: Triangle, vertices: [dynamic]Vertex, buf: []u8) {
