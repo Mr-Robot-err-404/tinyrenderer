@@ -16,7 +16,7 @@ Angle: f64 = math.PI / 6
 Ambient: f64 = 0.2
 Exponent: f64 = 4
 
-Eye := Vertex{-1, 0, 2}
+Eye := Vertex{-1, 0, 3}
 Center := Vertex{0, 0, 0}
 Up := Vertex{0, 1, 0}
 Light := Vertex{0, 1, 0}

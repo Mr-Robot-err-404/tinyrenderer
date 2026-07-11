@@ -6,6 +6,7 @@ import "core:os"
 Step :: enum {
 	Wireframe,
 	Rasturization,
+	Test,
 }
 Coord :: struct {
 	x, y: i32,
@@ -51,14 +52,19 @@ main :: proc() {
 
 	vertices := make([dynamic]Vertex)
 	normals := make([dynamic]Vertex)
+	textures := make([dynamic]Vertex)
 	indices := make([dynamic][3]Index)
 	defer delete(vertices)
 	defer delete(normals)
 	defer delete(indices)
+	defer delete(textures)
 
-	parse_obj("head.obj", &vertices, &indices, &normals)
+	parse_obj("obj/head.obj", &vertices, &indices, &normals, &textures)
 
 	switch step {
+	case Step.Test:
+		tga := load_tga("obj/head_nm.tga")
+		write_tga("out.tga", tga.width, tga.height, tga.buf)
 	case Step.Wireframe:
 		rasturize(vertices, indices, buf, Red)
 		write_tga("frame.tga", Width, Height, buf)
@@ -163,6 +169,60 @@ swap :: proc(a: ^$T, b: ^T) {
 	tmp := a^
 	a^ = b^
 	b^ = tmp
+}
+
+TGA :: struct {
+	width:  u32,
+	height: u32,
+	buf:    []u8,
+}
+
+sample_tga :: proc(x, y: i32, tga: TGA) -> [3]u8 {
+	idx := y * i32(tga.width) + x
+	idx *= 3
+	return [3]u8{tga.buf[idx + 2], tga.buf[idx + 1], tga.buf[idx]}
+}
+
+load_tga :: proc(filename: string) -> TGA {
+	data, ok := os.read_entire_file(filename)
+	if !ok {panic("failed to load .tga file")}
+
+	width := u32(data[12]) | u32(data[13]) << 8
+	height := u32(data[14]) | u32(data[15]) << 8
+
+	bpp := int(data[16]) / 8 // bytes per pixel (3 or 4)
+	pixel_count := int(width * height)
+	buf := make([]u8, pixel_count * 3) // always store as 3 bytes (BGR)
+
+	src := data[18:]
+	dst := 0
+	for dst < pixel_count * 3 {
+		packet := int(src[0])
+		src = src[1:]
+		if packet >= 128 {
+			// RLE run: repeat next pixel (packet-127) times
+			count := packet - 127
+			pixel := src[:bpp]
+			src = src[bpp:]
+			for i in 0 ..< count {
+				buf[dst] = pixel[0]
+				buf[dst + 1] = pixel[1]
+				buf[dst + 2] = pixel[2]
+				dst += 3
+			}
+		} else {
+			// Raw packet: (packet+1) literal pixels follow
+			count := packet + 1
+			for i in 0 ..< count {
+				buf[dst] = src[0]
+				buf[dst + 1] = src[1]
+				buf[dst + 2] = src[2]
+				dst += 3
+				src = src[bpp:]
+			}
+		}
+	}
+	return TGA{width = width, height = height, buf = buf}
 }
 
 write_tga :: proc(filename: string, width, height: u32, buffer: []u8) -> bool {

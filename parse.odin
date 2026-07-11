@@ -8,6 +8,7 @@ Geometry :: enum {
 	Vertex,
 	Face,
 	Normal,
+	Texture,
 	Unknown,
 }
 
@@ -16,6 +17,7 @@ parse_obj :: proc(
 	vertices: ^[dynamic]Vertex,
 	indices: ^[dynamic][3]Index,
 	normals: ^[dynamic]Vertex,
+	textures: ^[dynamic]Vertex,
 ) {
 	data, ok := os.read_entire_file(filename)
 	if !ok {panic("failed to read file")}
@@ -32,6 +34,10 @@ parse_obj :: proc(
 			vertex, ok := parse_vertex(parts)
 			if !ok {continue}
 			append_elem(vertices, vertex)
+		case Geometry.Texture:
+			t, ok := parse_vertex(parts)
+			if !ok {continue}
+			append_elem(textures, t)
 		case Geometry.Face:
 			f, ok := parse_faces(parts)
 			if !ok {continue}
@@ -47,9 +53,16 @@ parse_obj :: proc(
 }
 
 geometry :: proc(parts: []string) -> Geometry {
-	if parts[0] == "v" {return Geometry.Vertex}
-	if parts[0] == "f" {return Geometry.Face}
-	if parts[0] == "vn" {return Geometry.Normal}
+	switch parts[0] {
+	case "v":
+		return Geometry.Vertex
+	case "f":
+		return Geometry.Face
+	case "vn":
+		return Geometry.Normal
+	case "vt":
+		return Geometry.Texture
+	}
 	return Geometry.Unknown
 }
 
