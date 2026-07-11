@@ -78,11 +78,12 @@ face :: proc(s: string) -> (Index, bool) {
 	if len(f) < 3 {return Index{}, false}
 
 	v, ok := strconv.parse_int(f[0])
+	t, good := strconv.parse_int(f[1])
 	n, okay := strconv.parse_int(f[2])
-	if !ok || !okay {
+	if !ok || !okay || !good {
 		return Index{}, false
 	}
-	return Index{vertex = v - 1, normal = n - 1}, true
+	return Index{vertex = v - 1, normal = n - 1, texture = t - 1}, true
 }
 
 parse_vertex :: proc(parts: []string) -> (Vertex, bool) {

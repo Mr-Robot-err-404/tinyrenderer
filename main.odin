@@ -19,8 +19,9 @@ Vec4 :: struct {
 	w:            f64,
 }
 Index :: struct {
-	vertex: int,
-	normal: int,
+	vertex:  int,
+	normal:  int,
+	texture: int,
 }
 
 Width: u32 = 800
@@ -60,6 +61,7 @@ main :: proc() {
 	defer delete(textures)
 
 	parse_obj("obj/head.obj", &vertices, &indices, &normals, &textures)
+	tga := load_tga("obj/head_nm.tga")
 
 	switch step {
 	case Step.Test:
@@ -87,6 +89,8 @@ main :: proc() {
 				idx,
 				vertices,
 				normals,
+				textures,
+				tga,
 				buf,
 				depth,
 				z_buf,

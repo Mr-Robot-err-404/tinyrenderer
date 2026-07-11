@@ -11,6 +11,7 @@ Axis :: enum {
 Shading :: enum {
 	Flat,
 	Smooth,
+	Texture,
 }
 Angle: f64 = math.PI / 6
 Ambient: f64 = 0.2
@@ -21,13 +22,14 @@ Center := Vertex{0, 0, 0}
 Up := Vertex{0, 1, 0}
 Light := Vertex{0, 1, 0}
 
-shading := Shading.Smooth
+shading := Shading.Texture
 
 Point :: struct {
 	screen: Coord,
 	z:      f64,
 	normal: Vertex,
 	world:  Vertex,
+	uv:     Vertex,
 }
 
 parallel_rasturize :: proc(
@@ -36,6 +38,8 @@ parallel_rasturize :: proc(
 	idx: [3]Index,
 	vertices: [dynamic]Vertex,
 	normals: [dynamic]Vertex,
+	textures: [dynamic]Vertex,
+	tga: TGA,
 	buf: []u8,
 	depth: []u8,
 	z_buf: []f64,
@@ -49,18 +53,21 @@ parallel_rasturize :: proc(
 		world  = pa,
 		screen = Coord{i32(pa.x / pa.w), i32(pa.y / pa.w)},
 		z      = pa.z / pa.w,
+		uv     = textures[idx[0].texture],
 	}
 	b := Point {
 		normal = normalize(pipe(modal_view, normals[idx[1].normal])),
 		world  = pb,
 		screen = Coord{i32(pb.x / pb.w), i32(pb.y / pb.w)},
 		z      = pb.z / pb.w,
+		uv     = textures[idx[1].texture],
 	}
 	c := Point {
 		normal = normalize(pipe(modal_view, normals[idx[2].normal])),
 		world  = pc,
 		screen = Coord{i32(pc.x / pc.w), i32(pc.y / pc.w)},
 		z      = pc.z / pc.w,
+		uv     = textures[idx[2].texture],
 	}
 
 	ensure_unique_apex(&a, &b, &c)
@@ -99,6 +106,16 @@ parallel_rasturize :: proc(
 					z = (w0 * a.normal.z) + (w1 * b.normal.z) + (w2 * c.normal.z),
 				}
 				df = max(0, dot_product(n, Light))
+			case .Texture:
+				u := (w0 * a.uv.x) + (w1 * b.uv.x) + (w2 * c.uv.x)
+				v := (w0 * a.uv.y) + (w1 * b.uv.y) + (w2 * c.uv.y)
+				x := i32(u * f64(tga.width))
+				y := i32(v * f64(tga.height))
+
+				rgb := sample_tga(x, y, tga)
+				n = uv_mapping(rgb)
+				n = divide(n, magnitude(n))
+				df = max(0, dot_product(n, Light))
 			}
 			sight := line_of_sight(va, vb, vc, w0, w1, w2)
 			spec := specular(n, Exponent, sight)
@@ -116,6 +133,14 @@ parallel_rasturize :: proc(
 				set_pixel(p.x, p.y, depth, [3]u8{gray, gray, gray})
 			}
 		}
+	}
+}
+uv_mapping :: proc(rgb: [3]u8) -> Vertex {
+	// 0..255 -> 0..1 -> 0..2 -> -1..1
+	return Vertex {
+		x = (f64(rgb[0]) / 255) * 2 - 1,
+		y = (f64(rgb[1]) / 255) * 2 - 1,
+		z = (f64(rgb[2]) / 255) * 2 - 1,
 	}
 }
 
