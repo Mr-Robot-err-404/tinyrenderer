@@ -1,5 +1,7 @@
 package main
 
+import "core:fmt"
+import "core:image/tga"
 import "core:math"
 import "core:os"
 
@@ -26,6 +28,7 @@ Index :: struct {
 
 Width: u32 = 800
 Height: u32 = 800
+Focal_Distance: f64 = 3
 
 Triangle :: [3]i32
 Cube :: []Vertex {
@@ -39,7 +42,7 @@ Cube :: []Vertex {
 	{x = -0.5, y = -0.5, z = 1},
 }
 step := Step.Rasturization
-Focal_Distance: f64 = 3
+Asset :: "monster"
 
 main :: proc() {
 	buf := make([]u8, Width * Height * 3)
@@ -60,13 +63,16 @@ main :: proc() {
 	defer delete(indices)
 	defer delete(textures)
 
-	parse_obj("obj/head.obj", &vertices, &indices, &normals, &textures)
-	tga := load_tga("obj/head_nm.tga")
+	parse_obj(fmt.aprintf("obj/%s.obj", Asset), &vertices, &indices, &normals, &textures)
+	tga := load_tga(fmt.aprintf("obj/%s_nm.tga", Asset))
+	diff_tga := load_tga(fmt.aprintf("obj/%s_diffuse.tga", Asset))
+	spec_tga := load_tga(fmt.aprintf("obj/%s_spec.tga", Asset))
 
 	switch step {
 	case Step.Test:
-		tga := load_tga("obj/head_nm.tga")
-		write_tga("out.tga", tga.width, tga.height, tga.buf)
+		write_tga("nm_out.tga", tga.width, tga.height, tga.buf)
+		write_tga("diffuse_out.tga", diff_tga.width, diff_tga.height, diff_tga.buf)
+		write_tga("spec_out.tga", spec_tga.width, spec_tga.height, spec_tga.buf)
 	case Step.Wireframe:
 		rasturize(vertices, indices, buf, Red)
 		write_tga("frame.tga", Width, Height, buf)
@@ -91,6 +97,8 @@ main :: proc() {
 				normals,
 				textures,
 				tga,
+				diff_tga,
+				spec_tga,
 				buf,
 				depth,
 				z_buf,
@@ -188,45 +196,24 @@ sample_tga :: proc(x, y: i32, tga: TGA) -> [3]u8 {
 }
 
 load_tga :: proc(filename: string) -> TGA {
-	data, ok := os.read_entire_file(filename)
-	if !ok {panic("failed to load .tga file")}
+	img, err := tga.load_from_file(filename, {})
+	if err != nil {panic("failed to load .tga file")}
 
-	width := u32(data[12]) | u32(data[13]) << 8
-	height := u32(data[14]) | u32(data[15]) << 8
+	w := img.width
+	h := img.height
+	buf := make([]u8, w * h * 3)
 
-	bpp := int(data[16]) / 8 // bytes per pixel (3 or 4)
-	pixel_count := int(width * height)
-	buf := make([]u8, pixel_count * 3) // always store as 3 bytes (BGR)
-
-	src := data[18:]
-	dst := 0
-	for dst < pixel_count * 3 {
-		packet := int(src[0])
-		src = src[1:]
-		if packet >= 128 {
-			// RLE run: repeat next pixel (packet-127) times
-			count := packet - 127
-			pixel := src[:bpp]
-			src = src[bpp:]
-			for i in 0 ..< count {
-				buf[dst] = pixel[0]
-				buf[dst + 1] = pixel[1]
-				buf[dst + 2] = pixel[2]
-				dst += 3
-			}
-		} else {
-			// Raw packet: (packet+1) literal pixels follow
-			count := packet + 1
-			for i in 0 ..< count {
-				buf[dst] = src[0]
-				buf[dst + 1] = src[1]
-				buf[dst + 2] = src[2]
-				dst += 3
-				src = src[bpp:]
-			}
+	for row in 0 ..< h {
+		src_row := h - 1 - row // vertical flip
+		for col in 0 ..< w {
+			src := (src_row * w + col) * img.channels
+			dst := (row * w + col) * 3
+			buf[dst + 2] = img.pixels.buf[src]
+			buf[dst + 1] = img.pixels.buf[src + 1]
+			buf[dst] = img.pixels.buf[src + 2]
 		}
 	}
-	return TGA{width = width, height = height, buf = buf}
+	return TGA{width = u32(w), height = u32(h), buf = buf}
 }
 
 write_tga :: proc(filename: string, width, height: u32, buffer: []u8) -> bool {

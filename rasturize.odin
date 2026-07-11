@@ -20,7 +20,7 @@ Exponent: f64 = 4
 Eye := Vertex{-1, 0, 3}
 Center := Vertex{0, 0, 0}
 Up := Vertex{0, 1, 0}
-Light := Vertex{0, 1, 0}
+Light := Vertex{1, 1, 1}
 
 shading := Shading.Texture
 
@@ -39,7 +39,9 @@ parallel_rasturize :: proc(
 	vertices: [dynamic]Vertex,
 	normals: [dynamic]Vertex,
 	textures: [dynamic]Vertex,
-	tga: TGA,
+	n_tga: TGA,
+	diff_tga: TGA,
+	spec_tga: TGA,
 	buf: []u8,
 	depth: []u8,
 	z_buf: []f64,
@@ -89,12 +91,17 @@ parallel_rasturize :: proc(
 				coord_to_vertex(c.screen),
 			)
 			if !inside_triangle(w1, w2) {continue}
+			idx := (y * i32(Width)) + x
+			if idx < 0 || idx >= i32(len(z_buf)) {continue}
 
 			w0 := 1 - w1 - w2
 			z := (w0 * a.z) + (w1 * b.z) + (w2 * c.z)
 
 			n: Vertex
 			df: f64
+			color := rgb
+			exp := Exponent
+
 			switch shading {
 			case .Flat:
 				n = flat_norm
@@ -107,35 +114,43 @@ parallel_rasturize :: proc(
 				}
 				df = max(0, dot_product(n, Light))
 			case .Texture:
-				u := (w0 * a.uv.x) + (w1 * b.uv.x) + (w2 * c.uv.x)
-				v := (w0 * a.uv.y) + (w1 * b.uv.y) + (w2 * c.uv.y)
-				x := i32(u * f64(tga.width))
-				y := i32(v * f64(tga.height))
-
-				rgb := sample_tga(x, y, tga)
-				n = uv_mapping(rgb)
+				n = uv_normal_mapping(uv_interpolation(a, b, c, w0, w1, w2, n_tga))
 				n = divide(n, magnitude(n))
 				df = max(0, dot_product(n, Light))
+
+				color = uv_interpolation(a, b, c, w0, w1, w2, diff_tga)
+			// spec_rgb := uv_interpolation(a, b, c, w0, w1, w2, spec_tga)
+			// exp = f64(spec_rgb[0]) / 4.0
 			}
 			sight := line_of_sight(va, vb, vc, w0, w1, w2)
-			spec := specular(n, Exponent, sight)
+			spec := specular(n, exp, sight)
 
 			brightness := min(1, Ambient + df + spec)
+			pixel := [3]u8 {
+				u8(f64(color[0]) * brightness),
+				u8(f64(color[1]) * brightness),
+				u8(f64(color[2]) * brightness),
+			}
 			gray := u8(brightness * 255)
-
-			idx := (y * i32(Width)) + x
-			if idx < 0 || idx >= i32(len(z_buf)) {continue}
 
 			prev := z_buf[idx]
 			if prev == math.NEG_INF_F64 || z > prev {
 				z_buf[idx] = z
-				set_pixel(p.x, p.y, buf, rgb)
+				set_pixel(p.x, p.y, buf, pixel)
 				set_pixel(p.x, p.y, depth, [3]u8{gray, gray, gray})
 			}
 		}
 	}
 }
-uv_mapping :: proc(rgb: [3]u8) -> Vertex {
+uv_interpolation :: proc(a, b, c: Point, w0, w1, w2: f64, tga: TGA) -> [3]u8 {
+	u := (w0 * a.uv.x) + (w1 * b.uv.x) + (w2 * c.uv.x)
+	v := (w0 * a.uv.y) + (w1 * b.uv.y) + (w2 * c.uv.y)
+	x := i32(u * f64(tga.width))
+	y := i32(v * f64(tga.height))
+	return sample_tga(x, y, tga)
+}
+
+uv_normal_mapping :: proc(rgb: [3]u8) -> Vertex {
 	// 0..255 -> 0..1 -> 0..2 -> -1..1
 	return Vertex {
 		x = (f64(rgb[0]) / 255) * 2 - 1,
