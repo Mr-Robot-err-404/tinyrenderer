@@ -4,7 +4,6 @@ import "core:fmt"
 import "core:image/tga"
 import "core:math"
 import "core:os"
-import "core:strings"
 
 Step :: enum {
 	Wireframe,
@@ -42,89 +41,13 @@ Cube :: []Vertex {
 	{x = -0.5, y = 0.5, z = 1},
 	{x = -0.5, y = -0.5, z = 1},
 }
-usage :: proc() {
-	fmt.println("usage: tinyrenderer <stage> [--asset head|monster] [--specular] [--depth]")
-	fmt.println()
-	fmt.println("stages:")
-	fmt.println("  wireframe   line drawing over OBJ vertices")
-	fmt.println("  flat        solid color, face normals, z-buffer, backface culling")
-	fmt.println("  smooth      solid color, interpolated vertex normals")
-	fmt.println("  texture     UV diffuse map + tangent-space normal map")
-	fmt.println()
-	fmt.println("flags:")
-	fmt.println("  --asset     model to render: head or monster (default: monster)")
-	fmt.println("  --light     enable diffuse lighting (ambient + dot product)")
-	fmt.println("  --specular  add Phong specular highlight (from spec map), implies --light")
-	fmt.println("  --depth     write depth buffer instead of color")
-	os.exit(1)
-}
-
 main :: proc() {
-	args := os.args[1:]
-	if len(args) == 0 {usage()}
-
-	step: Step
-	asset         := "monster"
-	with_specular := false
-	with_lighting := false
-	with_depth    := false
-
-	for i := 0; i < len(args); i += 1 {
-		switch args[i] {
-		case "--specular":
-			with_specular = true
-			with_lighting = true
-		case "--light":
-			with_lighting = true
-		case "--depth":
-			with_depth = true
-		case "--asset":
-			if i + 1 >= len(args) {
-				fmt.println("--asset requires a value: head or monster")
-				os.exit(1)
-			}
-			i += 1
-			if args[i] != "head" && args[i] != "monster" {
-				fmt.printf("unknown asset: %s\n", args[i])
-				os.exit(1)
-			}
-			asset = args[i]
-		}
-	}
-
-	switch args[0] {
-	case "wireframe":
-		step = .Wireframe
-	case "flat":
-		step = .Rasturization
-		normal_mode = .Flat
-		color_mode  = .Solid
-	case "smooth":
-		step = .Rasturization
-		normal_mode = .Smooth
-		color_mode  = .Solid
-	case "texture":
-		step = .Rasturization
-		normal_mode = .Map
-		color_mode  = .Diffuse
-	case:
-		fmt.printf("unknown stage: %s\n\n", args[0])
-		usage()
-	}
-
-	use_specular = with_specular
-	use_lighting = with_lighting
+	a := parse_args()
+	step := a.step
+	asset := a.asset
+	out := a.out
 
 	os.make_directory("renders")
-
-	// build output name: renders/<asset>_<stage>[_depth][_specular].tga
-	out_parts := make([dynamic]string)
-	append(&out_parts, "renders/", asset, "_", args[0])
-	if with_depth    {append(&out_parts, "_depth")}
-	if with_lighting && !with_specular {append(&out_parts, "_light")}
-	if with_specular {append(&out_parts, "_specular")}
-	append(&out_parts, ".tga")
-	out := strings.concatenate(out_parts[:])
 
 	buf := make([]u8, Width * Height * 3)
 	depth := make([]u8, Width * Height * 3)
@@ -144,14 +67,14 @@ main :: proc() {
 	defer delete(indices)
 	defer delete(textures)
 
-	parse_obj(fmt.aprintf("obj/%s.obj", asset), &vertices, &indices, &normals, &textures)
-	nm_tga   := load_tga(fmt.aprintf("obj/%s_nm.tga", asset))
-	diff_tga := load_tga(fmt.aprintf("obj/%s_diffuse.tga", asset))
-	spec_tga := load_tga(fmt.aprintf("obj/%s_spec.tga", asset))
-
 	switch step {
 	case Step.Test:
 	case Step.Wireframe:
+		vertices := make([dynamic]Vertex)
+		normals := make([dynamic]Vertex)
+		textures := make([dynamic]Vertex)
+		indices := make([dynamic][3]Index)
+		parse_obj(fmt.aprintf("obj/%s.obj", asset), &vertices, &indices, &normals, &textures)
 		rasturize(vertices, indices, buf, Red)
 		write_tga(out, Width, Height, buf)
 	case Step.Rasturization:
@@ -166,28 +89,75 @@ main :: proc() {
 		compose(pp[:], vp[:], 4, persp)
 		compose(view, persp, 4, pipeline)
 
-		for idx in indices {
-			parallel_rasturize(
+		render_mesh(
+			fmt.aprintf("obj/%s.obj", asset),
+			fmt.aprintf("obj/%s_nm.tga", asset),
+			fmt.aprintf("obj/%s_diffuse.tga", asset),
+			fmt.aprintf("obj/%s_spec.tga", asset),
+			pipeline,
+			view,
+			buf,
+			depth,
+			z_buf,
+		)
+		if asset == "head" {
+			render_mesh(
+				"obj/eye_inner.obj",
+				"obj/eye_inner_nm.tga",
+				"obj/eye_inner_diffuse.tga",
+				"obj/eye_inner_spec.tga",
 				pipeline,
 				view,
-				idx,
-				vertices,
-				normals,
-				textures,
-				nm_tga,
-				diff_tga,
-				spec_tga,
 				buf,
 				depth,
 				z_buf,
-				rnd_color(),
 			)
 		}
-		if with_depth {
-			write_tga(out, Width, Height, depth)
-		} else {
-			write_tga(out, Width, Height, buf)
-		}
+		write_tga(out, Width, Height, buf)
+	}
+}
+
+render_mesh :: proc(
+	obj_path: string,
+	nm_path: string,
+	diff_path: string,
+	spec_path: string,
+	pipeline: []f64,
+	view: []f64,
+	buf: []u8,
+	depth: []u8,
+	z_buf: []f64,
+) {
+	vertices := make([dynamic]Vertex)
+	normals := make([dynamic]Vertex)
+	textures := make([dynamic]Vertex)
+	indices := make([dynamic][3]Index)
+	defer delete(vertices)
+	defer delete(normals)
+	defer delete(textures)
+	defer delete(indices)
+
+	parse_obj(obj_path, &vertices, &indices, &normals, &textures)
+	nm_tga := load_tga(nm_path)
+	diff_tga := load_tga(diff_path)
+	spec_tga := load_tga(spec_path)
+
+	for idx in indices {
+		parallel_rasturize(
+			pipeline,
+			view,
+			idx,
+			vertices,
+			normals,
+			textures,
+			nm_tga,
+			diff_tga,
+			spec_tga,
+			buf,
+			depth,
+			z_buf,
+			rnd_color(),
+		)
 	}
 }
 

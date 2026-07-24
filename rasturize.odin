@@ -9,13 +9,13 @@ Axis :: enum {
 	Z,
 }
 Normal_Mode :: enum {
-	Flat,   // face normal from cross product
-	Smooth, // interpolated vertex normals
-	Map,    // tangent-space normal map
+	Flat,
+	Smooth,
+	Map,
 }
 Color_Mode :: enum {
-	Solid,   // random per-triangle RGB
-	Diffuse, // UV-sampled diffuse texture
+	Solid,
+	Diffuse,
 }
 Angle: f64 = math.PI / 6
 Ambient: f64 = 0.2
@@ -26,8 +26,8 @@ Center := Vertex{0, 0, 0}
 Up := Vertex{0, 1, 0}
 Light := Vertex{1, 1, 1}
 
-normal_mode  := Normal_Mode.Map
-color_mode   := Color_Mode.Diffuse
+normal_mode := Normal_Mode.Map
+color_mode := Color_Mode.Diffuse
 use_specular := false
 use_lighting := false
 
@@ -125,12 +125,8 @@ parallel_rasturize :: proc(
 				n = divide(n, magnitude(n))
 				if use_lighting {df = max(0, dot_product(n, Light))}
 			}
-
-			if color_mode == .Diffuse {
-				color = uv_interpolation(a, b, c, w0, w1, w2, diff_tga)
-			} else if use_lighting {
-				color = White
-			}
+			if color_mode == .Diffuse {color = uv_interpolation(a, b, c, w0, w1, w2, diff_tga)
+			} else if use_lighting {color = White}
 
 			spec: f64 = 0
 			if use_specular {
