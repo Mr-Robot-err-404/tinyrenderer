@@ -8,10 +8,14 @@ Axis :: enum {
 	Y,
 	Z,
 }
-Shading :: enum {
-	Flat,
-	Smooth,
-	Texture,
+Normal_Mode :: enum {
+	Flat,   // face normal from cross product
+	Smooth, // interpolated vertex normals
+	Map,    // tangent-space normal map
+}
+Color_Mode :: enum {
+	Solid,   // random per-triangle RGB
+	Diffuse, // UV-sampled diffuse texture
 }
 Angle: f64 = math.PI / 6
 Ambient: f64 = 0.2
@@ -22,7 +26,10 @@ Center := Vertex{0, 0, 0}
 Up := Vertex{0, 1, 0}
 Light := Vertex{1, 1, 1}
 
-shading := Shading.Texture
+normal_mode  := Normal_Mode.Map
+color_mode   := Color_Mode.Diffuse
+use_specular := false
+use_lighting := false
 
 Point :: struct {
 	screen: Coord,
@@ -102,30 +109,39 @@ parallel_rasturize :: proc(
 			color := rgb
 			exp := Exponent
 
-			switch shading {
+			switch normal_mode {
 			case .Flat:
 				n = flat_norm
-				df = flat_df
+				if use_lighting {df = flat_df}
 			case .Smooth:
 				n = Vertex {
 					x = (w0 * a.normal.x) + (w1 * b.normal.x) + (w2 * c.normal.x),
 					y = (w0 * a.normal.y) + (w1 * b.normal.y) + (w2 * c.normal.y),
 					z = (w0 * a.normal.z) + (w1 * b.normal.z) + (w2 * c.normal.z),
 				}
-				df = max(0, dot_product(n, Light))
-			case .Texture:
+				if use_lighting {df = max(0, dot_product(n, Light))}
+			case .Map:
 				n = uv_normal_mapping(uv_interpolation(a, b, c, w0, w1, w2, n_tga))
 				n = divide(n, magnitude(n))
-				df = max(0, dot_product(n, Light))
-
-				color = uv_interpolation(a, b, c, w0, w1, w2, diff_tga)
-			// spec_rgb := uv_interpolation(a, b, c, w0, w1, w2, spec_tga)
-			// exp = f64(spec_rgb[0]) / 4.0
+				if use_lighting {df = max(0, dot_product(n, Light))}
 			}
-			sight := line_of_sight(va, vb, vc, w0, w1, w2)
-			spec := specular(n, exp, sight)
 
-			brightness := min(1, Ambient + df + spec)
+			if color_mode == .Diffuse {
+				color = uv_interpolation(a, b, c, w0, w1, w2, diff_tga)
+			} else if use_lighting {
+				color = White
+			}
+
+			spec: f64 = 0
+			if use_specular {
+				sight := line_of_sight(va, vb, vc, w0, w1, w2)
+				spec_rgb := uv_interpolation(a, b, c, w0, w1, w2, spec_tga)
+				exp = f64(spec_rgb[0]) / 4.0
+				spec = specular(n, exp, sight)
+			}
+
+			brightness: f64 = 1.0
+			if use_lighting {brightness = min(1, Ambient + df + spec)}
 			pixel := [3]u8 {
 				u8(f64(color[0]) * brightness),
 				u8(f64(color[1]) * brightness),
