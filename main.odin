@@ -26,8 +26,8 @@ Index :: struct {
 	texture: int,
 }
 
-Width: u32 = 800
-Height: u32 = 800
+Width: u32 = 80
+Height: u32 = 80
 Focal_Distance: f64 = 3
 
 Triangle :: [3]i32
@@ -69,6 +69,17 @@ main :: proc() {
 
 	switch step {
 	case Step.Test:
+		a := Coord{7, 7}
+		b := Coord{30, 70}
+		c := Coord{70, 40}
+		line(a, b, buf, Red)
+		line(c, b, buf, Red)
+		line(a, c, buf, Red)
+		set_pixel(a.x, a.y, buf, White)
+		set_pixel(b.x, b.y, buf, White)
+		set_pixel(c.x, c.y, buf, White)
+		write_tga("triangle.tga", Width, Height, buf)
+
 	case Step.Wireframe:
 		vertices := make([dynamic]Vertex)
 		normals := make([dynamic]Vertex)
